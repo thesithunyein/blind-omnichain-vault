@@ -176,6 +176,7 @@ blind-omnichain-vault/
 ├── frontend/           # Next.js app
 ├── ika/                # MPC integration
 ├── encrypt-pre-alpha/  # FHE implementation & Solana programs
+├── LICENSE
 └── README.md
 ```
 
