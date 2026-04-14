@@ -1,0 +1,4 @@
+{
+	"title": "Documentation",
+	"pages": ["sdk", "cli", "move-integration", "solana-integration", "core-concepts", "skills"]
+}

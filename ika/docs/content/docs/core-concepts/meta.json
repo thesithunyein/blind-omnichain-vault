@@ -1,0 +1,11 @@
+{
+	"title": "Core Concepts",
+	"root": true,
+	"pages": [
+		"dwallets",
+		"multi-chain-vs-cross-chain",
+		"zero-trust-and-decentralization",
+		"cryptography",
+		"whitepaper"
+	]
+}

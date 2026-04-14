@@ -1,0 +1,51 @@
+name: Build and Push System Test Docker Image
+
+on:
+  workflow_dispatch:
+    inputs:
+      cargo_build_flags:
+        description: 'Build flags for cargo'
+        required: false
+        default: '--no-default-features'
+      imageTag:
+        description: 'Tag for the Docker image'
+        required: false
+        default: 'latest'
+
+env:
+  GH_DEPLOY_KEY: ${{ secrets.GH_DEPLOY_KEY }}
+  CARGO_NET_GIT_FETCH_WITH_CLI: true
+  CLOUDSDK_CORE_PROJECT: common-449616
+  DOCKER_TAG: 'us-docker.pkg.dev/common-449616/ika-common-containers/ika-node:${{ github.event.inputs.imageTag }}'
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Docker auth for GAR
+        run: |
+          cat > key.json <<EOF
+          ${{ secrets.GAR_KEY }}
+          EOF
+          gcloud auth activate-service-account --key-file=key.json
+          gcloud auth configure-docker us-docker.pkg.dev --quiet
+
+      - name: Setup SSH
+        uses: ./.github/actions/setup-ssh
+        with:
+          deploy-key: ${{ secrets.GH_DEPLOY_KEY }}
+
+      - name: Build and push Docker image
+        working-directory: sdk/typescript/test/system-tests
+        run: |
+          touch .env
+          ./build.sh ${{ github.event.inputs.cargo_build_flags }}
+          docker push "$DOCKER_TAG"

@@ -1,0 +1,237 @@
+name: Publish SDKs (ika-wasm + typescript via pnpm Trusted Publishing)
+
+on:
+  push:
+    tags:
+      - 'sdk/typescript-*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version override — MUST include a pre-release tag (e.g., 1.1.9-test, 1.2.0-rc1). Bare versions like 1.2.0 are not allowed.'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  id-token: write # REQUIRED for pnpm/npm Trusted Publishing (OIDC)
+
+env:
+  RUSTDOCFLAGS: -Dwarnings
+  RUST_BACKTRACE: 1
+  rust_stable: 1.94
+  SUI_VERSION: 'sui@mainnet'
+
+jobs:
+  publish-sdks:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v6
+
+      - name: Validate manual version has pre-release tag
+        if: github.event_name == 'workflow_dispatch' && inputs.version != ''
+        run: |
+          VERSION="${{ inputs.version }}"
+          SEMVER_WITH_PRERELEASE='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-([0-9a-zA-Z-]+(\.[0-9a-zA-Z-]+)*)(\+([0-9a-zA-Z-]+(\.[0-9a-zA-Z-]+)*))?$'
+
+          if [[ ! "$VERSION" =~ $SEMVER_WITH_PRERELEASE ]]; then
+            echo "::error::Manual version MUST include a pre-release tag (e.g., 1.1.9-test, 1.2.0-rc1). Bare versions like 1.2.0 are reserved for release builds from main."
+            exit 1
+          fi
+          echo "Manual version validated: $VERSION"
+
+      - name: Validate tag version matches package.json
+        if: github.event_name == 'push'
+        run: |
+          TAG_VERSION="${GITHUB_REF#refs/tags/sdk/typescript-}"
+          PKG_VERSION=$(node -p "require('./sdk/typescript/package.json').version")
+
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "::error::Tag version ($TAG_VERSION) does not match sdk/typescript/package.json version ($PKG_VERSION). Update package.json first."
+            exit 1
+          fi
+          echo "Tag version matches package.json: $PKG_VERSION"
+
+      # ---------- Rust + wasm-pack (for sdk/ika-wasm) ----------
+
+      - name: Install Rust ${{ env.rust_stable }}
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.rust_stable }}
+
+      - name: Install wasm-pack
+        run: |
+          curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+          wasm-pack --version
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      # Update npm for registry checks (npm view commands)
+      - name: Update npm to latest
+        run: npm install -g npm@latest
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Install Sui CLI via suiup
+        run: |
+          # Install suiup
+          curl -sSfL https://raw.githubusercontent.com/MystenLabs/suiup/main/install.sh | sh
+
+          # Make suiup/sui available to later steps
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          export PATH="$HOME/.local/bin:$PATH"
+
+          # Install chosen Sui CLI version
+          "$HOME/.local/bin/suiup" install "$SUI_VERSION" -y
+
+          # Sanity check
+          sui --version
+
+      - name: Install dependencies (workspace)
+        run: pnpm install --frozen-lockfile
+
+      # ---------- Apply manual version override if provided ----------
+
+      - name: Override package versions (manual dispatch)
+        if: github.event_name == 'workflow_dispatch' && inputs.version != ''
+        run: |
+          VERSION="${{ inputs.version }}"
+          for pkg in sdk/ika-wasm/package.json sdk/typescript/package.json; do
+            node -e "
+              const fs = require('fs');
+              const pkg = JSON.parse(fs.readFileSync('$pkg', 'utf8'));
+              pkg.version = '$VERSION';
+              fs.writeFileSync('$pkg', JSON.stringify(pkg, null, '\t') + '\n');
+            "
+            echo "Set $pkg version to $VERSION"
+          done
+
+      # ---------- sdk/ika-wasm ----------
+
+      - name: Get sdk/ika-wasm package info
+        id: ika_pkg
+        working-directory: ./sdk/ika-wasm
+        run: |
+          NAME=$(node -p "require('./package.json').name")
+          VERSION=$(node -p "require('./package.json').version")
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Package: $NAME"
+          echo "Version: $VERSION"
+
+      - name: Check if sdk/ika-wasm version is already published
+        id: ika_check
+        env:
+          PKG_NAME: ${{ steps.ika_pkg.outputs.name }}
+          PKG_VERSION: ${{ steps.ika_pkg.outputs.version }}
+        run: |
+          echo "Checking if $PKG_NAME@$PKG_VERSION is already on npm..."
+          if npm view "$PKG_NAME@$PKG_VERSION" version > /dev/null 2>&1; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+            echo "$PKG_NAME@$PKG_VERSION is already published. Skipping."
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+            echo "$PKG_NAME@$PKG_VERSION is NOT published yet. Will publish."
+          fi
+
+      - name: Build (sdk/ika-wasm)
+        if: steps.ika_check.outputs.published == 'false'
+        working-directory: ./sdk/ika-wasm
+        run: pnpm build
+
+      - name: Verify git safety before publish
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            git diff --quiet || (echo "::error::Unclean working tree" && exit 1)
+          fi
+          # In CI, HEAD is a tag checkout — verify the tag exists on the remote
+          git ls-remote --exit-code origin "refs/tags/${GITHUB_REF#refs/tags/}" > /dev/null 2>&1 \
+            || (echo "::error::Tag not found on remote" && exit 1)
+          echo "Git safety checks passed"
+
+      - name: Publish sdk/ika-wasm via pnpm (Trusted Publishing)
+        if: steps.ika_check.outputs.published == 'false'
+        working-directory: ./sdk/ika-wasm
+        run: |
+          # Pre-release versions get their own dist-tag, not "latest"
+          TAG="latest"
+          VERSION="${{ steps.ika_pkg.outputs.version }}"
+          if [[ "$VERSION" == *-* ]]; then
+            TAG=$(echo "$VERSION" | sed 's/.*-//' | sed 's/\..*//')
+          fi
+          pnpm publish --provenance --access public --tag "$TAG" --no-git-checks
+          echo "Published ${{ steps.ika_pkg.outputs.name }}@$VERSION with tag $TAG"
+
+      # ---------- sdk/typescript ----------
+
+      - name: Get sdk/typescript package info
+        id: ts_pkg
+        working-directory: ./sdk/typescript
+        run: |
+          NAME=$(node -p "require('./package.json').name")
+          VERSION=$(node -p "require('./package.json').version")
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Package: $NAME"
+          echo "Version: $VERSION"
+
+      - name: Check if sdk/typescript version is already published
+        id: ts_check
+        env:
+          PKG_NAME: ${{ steps.ts_pkg.outputs.name }}
+          PKG_VERSION: ${{ steps.ts_pkg.outputs.version }}
+        run: |
+          echo "Checking if $PKG_NAME@$PKG_VERSION is already on npm..."
+          if npm view "$PKG_NAME@$PKG_VERSION" version > /dev/null 2>&1; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+            echo "$PKG_NAME@$PKG_VERSION is already published. Skipping."
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+            echo "$PKG_NAME@$PKG_VERSION is NOT published yet. Will publish."
+          fi
+
+      - name: Build (sdk/typescript)
+        if: steps.ts_check.outputs.published == 'false'
+        working-directory: ./sdk/typescript
+        run: pnpm build
+
+      - name: Publish sdk/typescript via pnpm (Trusted Publishing)
+        if: steps.ts_check.outputs.published == 'false'
+        working-directory: ./sdk/typescript
+        run: |
+          # Pre-release versions get their own dist-tag, not "latest"
+          TAG="latest"
+          VERSION="${{ steps.ts_pkg.outputs.version }}"
+          if [[ "$VERSION" == *-* ]]; then
+            TAG=$(echo "$VERSION" | sed 's/.*-//' | sed 's/\..*//')
+          fi
+          pnpm publish --provenance --access public --tag "$TAG" --no-git-checks
+          echo "Published ${{ steps.ts_pkg.outputs.name }}@$VERSION with tag $TAG"
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## SDK Publish Results" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Package | Version | Status |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---------|---------|--------|" >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "${{ steps.ika_check.outputs.published }}" = "true" ]; then
+            echo "| ${{ steps.ika_pkg.outputs.name }} | ${{ steps.ika_pkg.outputs.version }} | Skipped (already published) |" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "| ${{ steps.ika_pkg.outputs.name }} | ${{ steps.ika_pkg.outputs.version }} | Published |" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if [ "${{ steps.ts_check.outputs.published }}" = "true" ]; then
+            echo "| ${{ steps.ts_pkg.outputs.name }} | ${{ steps.ts_pkg.outputs.version }} | Skipped (already published) |" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "| ${{ steps.ts_pkg.outputs.name }} | ${{ steps.ts_pkg.outputs.version }} | Published |" >> "$GITHUB_STEP_SUMMARY"
+          fi

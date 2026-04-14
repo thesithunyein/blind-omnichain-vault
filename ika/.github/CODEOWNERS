@@ -1,0 +1,20 @@
+# ── Rust crates (ycscaly) ──
+/crates/ @ycscaly
+
+# ── Move contracts (iamknownasfesal) ──
+/contracts/ @iamknownasfesal
+
+# ── SDK & TypeScript (iamknownasfesal) ──
+/sdk/ @iamknownasfesal
+
+# ── Documentation (iamknownasfesal) ──
+*.md @iamknownasfesal
+# Omit auto-generated changelogs and changesets from review:
+/.changeset/*.md
+CHANGELOG.md
+
+# ── Docker & Infrastructure (omersadika) ──
+/docker/ @omersadika
+
+# ── CI/CD (omersadika) ──
+/.github/ @omersadika

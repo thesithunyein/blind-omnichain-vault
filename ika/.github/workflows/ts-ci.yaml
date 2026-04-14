@@ -1,0 +1,72 @@
+name: TypeScript Continuous Integration
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    paths:
+      - "sdk/**"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+env:
+  CARGO_NET_GIT_FETCH_WITH_CLI: true
+  GH_DEPLOY_KEY: ${{ secrets.GH_DEPLOY_KEY }}
+  PROFILE: dev
+
+jobs:
+  code-quality:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+
+      - name: Setup SSH
+        uses: ./.github/actions/setup-ssh
+        with:
+          deploy-key: ${{ secrets.GH_DEPLOY_KEY }}
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Install Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22.x
+          cache: "pnpm"
+
+      - name: Install wasm pack
+        uses: jetli/wasm-pack-action@v0.4.0
+        with:
+          version: "latest"
+
+      - name: Install curl
+        run: sudo apt-get install -y curl
+
+      - name: Install Sui from Github
+        run: |
+          curl -L https://github.com/MystenLabs/sui/releases/download/testnet-v1.67.1/sui-testnet-v1.67.1-ubuntu-x86_64.tgz > sui.tgz
+          tar -xvzf sui.tgz
+          sudo cp ./sui /usr/local/bin/sui
+
+      - name: Install dependencies
+        run: pnpm install
+        working-directory: ./sdk/typescript
+
+      - name: Format Check
+        run: pnpm run prettier:check
+        working-directory: ./sdk/typescript
+
+      - name: Build
+        run: pnpm run build
+        working-directory: ./sdk/typescript
+
+      - name: Lint
+        run: pnpm run eslint:check
+        working-directory: ./sdk/typescript

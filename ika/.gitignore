@@ -1,0 +1,94 @@
+# IDE
+**/.history/
+**/.vscode/
+**/.idea/
+
+# OSX
+.DS_Store
+
+# Rust build directory
+**/target
+.pre-commit*
+
+# Move build directory
+build
+storage
+!crates/ika-types/src/storage
+
+# Move package summary
+package_summaries
+
+# Sui codegen
+generated
+
+# Move-related files
+Move.lock
+!deployed_contracts/testnet/ika/Move.lock
+!deployed_contracts/testnet/ika_common/Move.lock
+!deployed_contracts/testnet/ika_dwallet_2pc_mpc/Move.lock
+!deployed_contracts/testnet/ika_system/Move.lock
+!deployed_contracts/mainnet/ika/Move.lock
+!deployed_contracts/mainnet/ika_common/Move.lock
+!deployed_contracts/mainnet/ika_dwallet_2pc_mpc/Move.lock
+!deployed_contracts/mainnet/ika_system/Move.lock
+.trace
+.coverage_map.mvcov
+Pub.localnet.toml
+
+# Thumbnails
+._*
+
+# Emacs
+\#*\#
+.\#*
+
+# Python
+.pyc
+
+# Node.js
+node_modules
+.tsbuildinfo
+*.tsbuildinfo
+.turbo
+
+# App build directories
+dist/
+storybook-static/
+web-ext-artifacts/
+.next/
+next-env.d.ts
+
+# App test artifacts
+coverage/
+test-results/
+playwright-report/
+playwright/.cache/
+
+# logs
+wallet.log.*
+ika.log.*
+.vercel
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# misc
+*.key
+.env
+checkpoints_dir/*
+light_client.yaml
+docs/content/references/ika-api/ika-graphql/*
+docs/content/references/framework/**
+
+lcov.info
+ika_config.json
+*.log
+*.seed
+
+# AI
+.cursor
+
+# TypeDoc
+sdk/typescript/docs
+move_pkg_lock_root.lock
+node-compile-cache
