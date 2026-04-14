@@ -7,25 +7,25 @@
 ![Status](https://img.shields.io/badge/status-hackathon-blue)
 ![Solana](https://img.shields.io/badge/built%20on-Solana-purple)
 ![Ethereum](https://img.shields.io/badge/settlement-Ethereum-black)
-![Privacy](https://img.shields.io/badge/privacy-FHE-green)
-![Execution](https://img.shields.io/badge/execution-MPC-orange)
+![Privacy](https://img.shields.io/badge/privacy-Encrypt_REFHE-green)
+![Execution](https://img.shields.io/badge/execution-Ika_MPC-orange)
 
 ---
 
 ## 🚀 Overview
 
-BlindVault is a privacy-preserving, cross-chain trading vault built for the Frontier Hackathon.
+BlindVault is a privacy-preserving, cross-chain trading vault built for the Solana Frontier Hackathon. 
+
+By functioning as a true hybrid infrastructure project, it pioneers both **Encrypted Capital Markets** and **Bridgeless Capital Markets** in a single protocol.
 
 It enables users to:
-
-* Hide their trading strategies completely
-* Execute trades across chains without bridges
+* Hide their trading strategies completely from the public ledger
+* Execute trades natively across chains without vulnerable bridges
 * Avoid MEV, front-running, and copy trading
 
 This is achieved using:
-
-* **Fully Homomorphic Encryption (FHE)** on Solana
-* **Multi-Party Computation (MPC)** via Ika Network on Ethereum
+* **Fully Homomorphic Encryption (REFHE Protocol)** via Encrypt on Solana
+* **Multi-Party Computation (2PC-MPC Protocol)** via Ika Network on Ethereum
 
 ---
 
@@ -35,41 +35,35 @@ This is achieved using:
 
 ---
 
-## ⚠️ Problem
+## ⚠️ The Problem & Target Users
 
-In DeFi, everything is public.
+In DeFi, everything is public. When a user places a limit order or defines a vault strategy, target prices are visible on-chain. Bots monitor and exploit these strategies, causing users to get front-run or copied. 
 
-When a user places a limit order or defines a vault strategy:
+**Target Users:** * **Institutional Traders & Whales:** Who need to move large sizes without signaling the market.
+* **Retail Traders:** Who want to execute automated strategies without losing profit to MEV bots.
 
-* Target prices are visible on-chain
-* Bots monitor and exploit these strategies
-* Users get front-run or copied
-
-Result:
-
+**The Result of Public Markets:**
 * Worse execution
 * Lost profits
-* No privacy
+* Single-point-of-failure bridge hacks
 
 ---
 
-## 💡 Solution
+## 💡 The Solution
 
-BlindVault ensures **zero information leakage**.
+BlindVault ensures **zero information leakage** by using Solana as a highly-performant, zero-knowledge control layer.
 
-### 🔐 Private Strategy Execution (FHE)
+### 🔐 Private Strategy Execution (Encrypt REFHE)
+* Users encrypt trading conditions locally in the browser.
+* Data is stored strictly as ciphertext on Solana.
+* Smart contracts evaluate live oracle conditions against the ciphertext without decryption.
+* The strategy remains 100% invisible to the public and validators.
 
-* Users encrypt trading conditions in the browser
-* Data is stored as ciphertext on Solana
-* Smart contracts evaluate conditions without decryption
-* No one can see the strategy
-
-### 🌉 Bridgeless Cross-Chain Execution (MPC)
-
-* When conditions are met, execution is triggered
-* No bridges or wrapped tokens
-* Ika MPC network controls an Ethereum dWallet
-* Trade executes directly on Uniswap
+### 🌉 Bridgeless Cross-Chain Execution (Ika 2PC-MPC)
+* When FHE conditions are met, execution is triggered via CPI.
+* We move the *intent*, not the assets—zero bridges or wrapped tokens.
+* The Ika MPC network controls a programmable Ethereum dWallet.
+* The trade executes natively on Uniswap V3.
 
 ---
 
@@ -82,127 +76,127 @@ flowchart LR
     C --> D[FHE Oracle Price Check]
     D -->|Condition True| E[CPI to Ika Network]
     E --> F[Ika MPC dWallet]
-    F --> G[Execute Trade on Uniswap V3]
+    F --> G[Execute Native Trade on Uniswap V3]
 ```
 
 ---
 
-## 🔄 Flow Summary
+## 🔄 Flow Summary & Use Case
 
-1. User inputs trade conditions
-2. Conditions are encrypted locally
-3. Encrypted data stored on Solana
-4. Oracle prices checked via FHE
-5. If condition is true
-6. Ika MPC executes trade on Ethereum
-7. Trade settles using native assets
+Example Use Case: A trader wants to buy WBTC on Ethereum at $65,000 without revealing their target price to the market.
+
+User inputs trade conditions in the Next.js UI.
+
+Conditions are encrypted locally (Zero-knowledge proof generated).
+
+Encrypted data is deposited into the Solana vault.
+
+Solana program checks oracle prices via FHE.
+
+If the condition is true, a CPI calls the Ika Network.
+
+Ika MPC signs a transaction for the user's dedicated dWallet.
+
+Trade executes and settles using native assets on Ethereum.
 
 ---
 
 ## 🏗️ Tech Stack
 
-| Layer           | Technology            |
-| --------------- | --------------------- |
-| Frontend        | Next.js, Tailwind CSS |
-| Wallet          | Solana Wallet Adapter |
-| Smart Contracts | Rust, Anchor          |
-| Privacy         | Encrypt FHE SDK       |
-| Cross-Chain     | Ika MPC (dWallets)    |
-| Execution       | Uniswap V3            |
+Layer	Technology
+Frontend	Next.js, Tailwind CSS
+Wallet	Solana Wallet Adapter
+Smart Contracts	Rust, Anchor
+Privacy	Encrypt FHE SDK
+Cross-Chain	Ika MPC (dWallets)
+Execution	Uniswap V3
 
 ---
 
-## ✨ Key Features
+## 💻 How to Build, Test, and Use
 
-* 🔒 Fully private trading strategies
-* ⚡ No bridges, no wrapped assets
-* 🛡 Protection against MEV and front-running
-* 🌐 True cross-chain execution
-* 💸 Low fees on Solana, settlement on Ethereum
+1. Clone Repo
 
----
+Bash
 
-## 🧪 Example Use Case
-
-> A trader wants to buy ETH at $2,000 without revealing it
-
-* They encrypt the target price locally
-* The contract monitors price privately
-* When ETH hits $2,000
-* Trade executes instantly on Ethereum
-* No one ever sees the strategy
-
----
-
-## 🏆 Why This Wins
-
-* Combines **FHE + MPC** into a real product
-* Solves a real multi-million dollar problem
-* Clean UX with powerful backend
-* Fully aligned with hackathon goals
-
----
-
-## 💻 Run Locally
-
-### 1. Clone Repo
-
-```bash
-git clone https://github.com/stnyein/blind-omnichain-vault.git
+git clone https://github.com/thesithunyein/blind-omnichain-vault.git
 cd blind-omnichain-vault
-```
 
-### 2. Frontend
+2. Run Frontend UI
 
-```bash
+Bash
+
 cd frontend
 npm install
 npm run dev
-```
 
-### 3. Smart Contracts
+Open http://localhost:3000 to interact with the strategy builder.
 
-```bash
-# Build FHE program
+3. Build Smart Contracts (Devnet)
+
+Bash
+
+# Build the FHE program utilizing Encrypt's Devnet SDK
 cargo build --manifest-path encrypt-pre-alpha/chains/solana/examples/voting/anchor/Cargo.toml
-```
+
+---
+
+## 🔗 Deployed Program IDs
+
+Environment: Solana Devnet / Localnet
+
+Encrypt Program: (Available via Encrypt pre-alpha devnet cluster)
+
+Ika dWallet: (Generated dynamically per user session via 2PC-MPC)
 
 ---
 
 ## 📦 Project Structure
 
-```bash
+Bash
+
 blind-omnichain-vault/
-├── frontend/           # Next.js app
-├── ika/                # MPC integration
+├── frontend/           # Next.js UI and FHE Client logic
+├── ika/                # MPC integration and dWallet setup
 ├── encrypt-pre-alpha/  # FHE implementation & Solana programs
 ├── LICENSE
 └── README.md
-```
+
+---
+
+## 🏆 Hackathon Alignment (Why this fits the Frontier Track)
+
+Core Integration: Fundamentally relies on both Encrypt and Ika. Neither is superficial; without Encrypt, strategies are public. Without Ika, we are forced to use vulnerable bridges.
+
+Commercial Potential: Directly solves the multi-million dollar MEV extraction problem.
+
+Innovation: Shifts Solana from just a fast chain to the ultimate "blind control layer" for all of Web3.
 
 ---
 
 ## 🔮 Future Work
 
-* Add more DEX integrations
-* Support multiple strategies per vault
-* Improve UI/UX for non-technical users
-* Add analytics dashboard
+Add more DEX integrations across EVM chains (Curve, PancakeSwap).
+
+Support multiple combined conditions per vault (e.g., TWAP + Price Floors).
+
+Launch mainnet deployment alongside Encrypt and Ika production releases.
 
 ---
 
 ## 🤝 Team
 
-Built to pioneer **Bridgeless Capital Markets** (via Ika) and **Encrypted Capital Markets** (via Encrypt) on Solana.
+Built as a solo developer to pioneer Bridgeless Capital Markets and Encrypted Capital Markets on Solana.
 
 ---
 
 ## ❤️ Acknowledgements
 
-* Solana
-* Encrypt Network
-* Ika Network
-* Uniswap
+Solana Foundation
+
+Encrypt Network
+
+Ika Network
 
 ---
 
