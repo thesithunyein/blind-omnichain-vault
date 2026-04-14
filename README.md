@@ -39,7 +39,8 @@ This is achieved using:
 
 In DeFi, everything is public. When a user places a limit order or defines a vault strategy, target prices are visible on-chain. Bots monitor and exploit these strategies, causing users to get front-run or copied. 
 
-**Target Users:** * **Institutional Traders & Whales:** Who need to move large sizes without signaling the market.
+**Target Users:**
+* **Institutional Traders & Whales:** Who need to move large sizes without signaling the market.
 * **Retail Traders:** Who want to execute automated strategies without losing profit to MEV bots.
 
 **The Result of Public Markets:**
@@ -103,85 +104,80 @@ Trade executes and settles using native assets on Ethereum.
 
 ## 🏗️ Tech Stack
 
-Layer	Technology
-Frontend	Next.js, Tailwind CSS
-Wallet	Solana Wallet Adapter
-Smart Contracts	Rust, Anchor
-Privacy	Encrypt FHE SDK
-Cross-Chain	Ika MPC (dWallets)
-Execution	Uniswap V3
+| Layer        | Technology                     |
+|--------------|-------------------------------|
+| Frontend     | Next.js, Tailwind CSS         |
+| Wallet       | Solana Wallet Adapter         |
+| Smart Contracts | Rust, Anchor              |
+| Privacy      | Encrypt FHE SDK               |
+| Cross-Chain  | Ika MPC (dWallets)            |
+| Execution    | Uniswap V3                    |
 
 ---
 
 ## 💻 How to Build, Test, and Use
 
-### 1. Clone Repo
+### Prerequisites & Clone + Run Frontend + Build Smart Contracts
 
 ```bash
+# Install yarn (if not installed)
+npm install -g yarn
+
+# Clone repository
 git clone https://github.com/thesithunyein/blind-omnichain-vault.git
 cd blind-omnichain-vault
-```
 
-### 2. Run Frontend UI
-
-```bash
+# Run frontend
 cd frontend
 npm install
 npm run dev
+
+# Open in browser
+# http://localhost:3000
+
+# Go back to root
+cd ..
+
+# Build smart contracts (Devnet)
+cargo build --manifest-path encrypt-pre-alpha/chains/solana/examples/voting/anchor/Cargo.toml
 ```
 
 Open http://localhost:3000 to interact with the strategy builder.
 
-### 3. Build Smart Contracts (Devnet)
-
-```bash
-# Build the FHE program utilizing Encrypt's Devnet SDK
-cargo build --manifest-path encrypt-pre-alpha/chains/solana/examples/voting/anchor/Cargo.toml
-```
-
----
-
 ## 🔗 Deployed Program IDs
 
-Environment: Solana Devnet / Localnet
-
-Encrypt Program: (Available via Encrypt pre-alpha devnet cluster)
-
+Environment: Solana Devnet / Localnet  
+Encrypt Program: (Available via Encrypt pre-alpha devnet cluster)  
 Ika dWallet: (Generated dynamically per user session via 2PC-MPC)
 
 ---
 
 ## 📦 Project Structure
 
-Bash
-
+```bash
 blind-omnichain-vault/
 ├── frontend/           # Next.js UI and FHE Client logic
 ├── ika/                # MPC integration and dWallet setup
 ├── encrypt-pre-alpha/  # FHE implementation & Solana programs
 ├── LICENSE
 └── README.md
+```
 
 ---
 
 ## 🏆 Hackathon Alignment (Why this fits the Frontier Track)
 
-Core Integration: Fundamentally relies on both Encrypt and Ika. Neither is superficial; without Encrypt, strategies are public. Without Ika, we are forced to use vulnerable bridges.
-
-Commercial Potential: Directly solves the multi-million dollar MEV extraction problem.
-
-Innovation: Shifts Solana from just a fast chain to the ultimate "blind control layer" for all of Web3.
+* **Core Integration:** Fundamentally relies on both Encrypt and Ika. Neither is superficial; without Encrypt, strategies are public. Without Ika, we are forced to use vulnerable bridges.
+* **Commercial Potential:** Directly solves the multi-million dollar MEV extraction problem.
+* **Innovation:** Shifts Solana from just a fast chain to the ultimate "blind control layer" for all of Web3.
 
 ---
 
 ## 🔮 Future Work
 
-Add more DEX integrations across EVM chains (Curve, PancakeSwap).
-
-Support multiple combined conditions per vault (e.g., TWAP + Price Floors).
-
-Launch mainnet deployment alongside Encrypt and Ika production releases.
-
+* Add more DEX integrations across EVM chains (Curve, PancakeSwap).
+* Support multiple combined conditions per vault (e.g., TWAP + Price Floors).
+* Launch mainnet deployment alongside Encrypt and Ika production releases.
 ---
 
 ## 🤝 Team
