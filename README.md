@@ -115,29 +115,29 @@ Execution	Uniswap V3
 
 ## 💻 How to Build, Test, and Use
 
-1. Clone Repo
+### 1. Clone Repo
 
-Bash
-
+```bash
 git clone https://github.com/thesithunyein/blind-omnichain-vault.git
 cd blind-omnichain-vault
+```
 
-2. Run Frontend UI
+### 2. Run Frontend UI
 
-Bash
-
+```bash
 cd frontend
 npm install
 npm run dev
+```
 
 Open http://localhost:3000 to interact with the strategy builder.
 
-3. Build Smart Contracts (Devnet)
+### 3. Build Smart Contracts (Devnet)
 
-Bash
-
+```bash
 # Build the FHE program utilizing Encrypt's Devnet SDK
 cargo build --manifest-path encrypt-pre-alpha/chains/solana/examples/voting/anchor/Cargo.toml
+```
 
 ---
 

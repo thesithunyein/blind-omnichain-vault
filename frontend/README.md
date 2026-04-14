@@ -1,14 +1,18 @@
 # 🖥️ BlindVault Frontend
 
-This is the Next.js frontend for **BlindVault**. It provides a high-fidelity interface for users to encrypt their trading strategies using Fully Homomorphic Encryption (FHE) and manage their cross-chain dWallets on Solana.
+This is the **Next.js** frontend for **BlindVault**. It provides a high-fidelity, professional interface for users to encrypt their trading strategies using **REFHE** (Fully Homomorphic Encryption) and manage their omnichain **2PC-MPC** dWallets.
+
+---
 
 ## 🚀 Quick Start
 
 ### 1. Prerequisites
-Ensure you have **Node.js 18+** and **npm** installed. You will also need the **Phantom Wallet** or **Backpack** extension installed in your browser.
+* **Node.js 18+**
+* **npm** or **yarn**
+* **Phantom Wallet** or **Backpack** browser extension
 
-### 2. Installation
-From the root of the project, navigate to the frontend directory:
+### 2. Installation & Setup
+From the project root, navigate to the frontend directory and install dependencies:
 
 ```bash
 cd frontend
