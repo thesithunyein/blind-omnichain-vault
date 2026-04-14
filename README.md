@@ -14,7 +14,7 @@
 
 ## 🚀 Overview
 
-BlindVault is a privacy-preserving, cross-chain trading vault built for the Ranger "Build-A-Bear" Hackathon.
+BlindVault is a privacy-preserving, cross-chain trading vault built for the Frontier Hackathon.
 
 It enables users to:
 
