@@ -82,6 +82,7 @@ flowchart LR
 * Rust / Anchor CLI
 * Node.js & npm
 * Solana CLI
+* **⚠️ Note for Windows Users:** Solana's `build-sbf` toolchain is not natively supported in standard PowerShell/CMD. You **must** use WSL (Windows Subsystem for Linux) or a Linux/macOS environment (like GitHub Codespaces) to build the smart contracts.
 
 ### 2. Clone & Install
 ```bash
@@ -90,13 +91,16 @@ cd blind-omnichain-vault
 ```
 
 ### 3. Smart Contract Build
+```bash
 # Navigate to the Anchor program
 cd encrypt-pre-alpha/chains/solana/examples/voting/anchor
 
 # Build for SBF
 cargo build-sbf
+```
 
 ### 4. Frontend Launch
+```bash
 # Return to root and enter frontend directory
 cd ../../../../../../frontend
 
