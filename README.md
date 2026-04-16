@@ -90,17 +90,17 @@ cd blind-omnichain-vault
 ```
 
 ### 3. Smart Contract Build
-```bash
 # Navigate to the Anchor program
 cd encrypt-pre-alpha/chains/solana/examples/voting/anchor
 
 # Build for SBF
 cargo build-sbf
-```
 
 ### 4. Frontend Launch
-```bash
+# Return to root and enter frontend directory
 cd ../../../../../../frontend
+
+# Install and Run
 npm install
 npm run dev
 ```
