@@ -1,0 +1,272 @@
+{
+  "version": "0.1.0",
+  "name": "bov",
+  "docs": [
+    "Blind Omnichain Vault — Solana program.",
+    "Custodies native cross-chain assets via Ika dWallets,",
+    "runs strategy on Encrypt FHE ciphertexts.",
+    "",
+    "Live demo: https://blind-omnichain-vault.vercel.app",
+    "Program:   Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS (Solana devnet)"
+  ],
+  "instructions": [
+    {
+      "name": "initializeVault",
+      "docs": ["Create a new vault with an encrypted target-weight policy."],
+      "accounts": [
+        { "name": "vault",         "isMut": true,  "isSigner": false },
+        { "name": "authority",     "isMut": true,  "isSigner": true  },
+        { "name": "systemProgram", "isMut": false, "isSigner": false }
+      ],
+      "args": [
+        { "name": "vaultId",                    "type": "u64" },
+        { "name": "encryptedTargetWeights",      "type": { "vec": { "defined": "EncU64" } } },
+        { "name": "encryptedRebalanceBandBps",   "type": { "defined": "EncU64" } },
+        { "name": "supportedChains",             "type": { "vec": { "defined": "DWalletChain" } } }
+      ]
+    },
+    {
+      "name": "registerDwallet",
+      "docs": ["Bind an Ika dWallet to this vault for a given chain (2PC-MPC custody)."],
+      "accounts": [
+        { "name": "vault",         "isMut": true,  "isSigner": false },
+        { "name": "registryEntry", "isMut": true,  "isSigner": false },
+        { "name": "authority",     "isMut": true,  "isSigner": true  },
+        { "name": "ikaProgram",    "isMut": false, "isSigner": false, "docs": ["Ika program (CPI target)."] },
+        { "name": "systemProgram", "isMut": false, "isSigner": false }
+      ],
+      "args": [
+        { "name": "chain",          "type": { "defined": "DWalletChain" } },
+        { "name": "dwalletId",      "type": { "array": ["u8", 32] } },
+        { "name": "foreignAddress", "type": "bytes" }
+      ]
+    },
+    {
+      "name": "deposit",
+      "docs": [
+        "Record an encrypted deposit. The native asset is already on the foreign chain;",
+        "this instruction homomorphically adds the encrypted amount to the user ledger,",
+        "the per-chain balance, and the vault NAV — all in ciphertext."
+      ],
+      "accounts": [
+        { "name": "vault",          "isMut": true,  "isSigner": false },
+        { "name": "userLedger",     "isMut": true,  "isSigner": false },
+        { "name": "chainBalance",   "isMut": true,  "isSigner": false },
+        { "name": "user",           "isMut": true,  "isSigner": true  },
+        { "name": "encryptProgram", "isMut": false, "isSigner": false, "docs": ["Encrypt FHE program (CPI target)."] },
+        { "name": "systemProgram",  "isMut": false, "isSigner": false }
+      ],
+      "args": [
+        { "name": "chain",           "type": { "defined": "DWalletChain" } },
+        { "name": "encryptedAmount", "type": { "defined": "EncU64" } }
+      ]
+    },
+    {
+      "name": "requestRebalance",
+      "docs": [
+        "Evaluate the FHE rebalance policy on encrypted state.",
+        "If the guard ciphertext resolves to encrypted-true, Ika co-signs the cross-chain tx.",
+        "The program never learns whether the rebalance triggered."
+      ],
+      "accounts": [
+        { "name": "vault",          "isMut": false, "isSigner": false },
+        { "name": "fromBalance",    "isMut": false, "isSigner": false },
+        { "name": "toBalance",      "isMut": false, "isSigner": false },
+        { "name": "fromRegistry",   "isMut": false, "isSigner": false },
+        { "name": "cranker",        "isMut": false, "isSigner": true  },
+        { "name": "ikaProgram",     "isMut": false, "isSigner": false },
+        { "name": "encryptProgram", "isMut": false, "isSigner": false }
+      ],
+      "args": [
+        { "name": "fromChain",       "type": { "defined": "DWalletChain" } },
+        { "name": "toChain",         "type": { "defined": "DWalletChain" } },
+        { "name": "preparedTxDigest","type": { "array": ["u8", 32] } }
+      ]
+    },
+    {
+      "name": "withdraw",
+      "docs": [
+        "Initiate threshold decryption of only the caller's encrypted share.",
+        "Other users' balances remain encrypted and untouched."
+      ],
+      "accounts": [
+        { "name": "vault",          "isMut": true, "isSigner": false },
+        { "name": "userLedger",     "isMut": true, "isSigner": false },
+        { "name": "user",           "isMut": true, "isSigner": true  },
+        { "name": "encryptProgram", "isMut": false,"isSigner": false }
+      ],
+      "args": [
+        { "name": "chain", "type": { "defined": "DWalletChain" } }
+      ]
+    },
+    {
+      "name": "setPaused",
+      "docs": ["Emergency pause / unpause (authority only)."],
+      "accounts": [
+        { "name": "vault",     "isMut": true,  "isSigner": false },
+        { "name": "authority", "isMut": false, "isSigner": true  }
+      ],
+      "args": [
+        { "name": "paused", "type": "bool" }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "Vault",
+      "docs": ["Root vault account — holds encrypted NAV, strategy weights, and dWallet registry count."],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "vaultId",                   "type": "u64"                               },
+          { "name": "authority",                  "type": "publicKey"                         },
+          { "name": "bump",                       "type": "u8"                                },
+          { "name": "paused",                     "type": "bool"                              },
+          { "name": "dwalletCount",               "type": "u8"                                },
+          { "name": "totalDepositors",            "type": "u64"                               },
+          { "name": "supportedChains",            "type": { "vec": { "defined": "DWalletChain" } } },
+          { "name": "encryptedTargetWeights",     "type": { "vec": { "defined": "EncU64" } } },
+          { "name": "encryptedRebalanceBandBps",  "type": { "defined": "EncU64" }             },
+          { "name": "encryptedNav",               "type": { "defined": "EncU64" }             }
+        ]
+      }
+    },
+    {
+      "name": "DWalletRegistryEntry",
+      "docs": ["Maps a chain to its Ika dWallet — the 2PC-MPC key that signs native-chain txs."],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "vault",          "type": "publicKey"                         },
+          { "name": "chain",          "type": { "defined": "DWalletChain" }       },
+          { "name": "dwalletId",      "type": { "array": ["u8", 32] }             },
+          { "name": "foreignAddress", "type": "bytes"                             },
+          { "name": "bump",           "type": "u8"                                }
+        ]
+      }
+    },
+    {
+      "name": "UserLedger",
+      "docs": ["Per-user encrypted sub-ledger — only the owner can threshold-decrypt their share."],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "owner",           "type": "publicKey"               },
+          { "name": "vault",           "type": "publicKey"               },
+          { "name": "encryptedShares", "type": { "defined": "EncU64" }   },
+          { "name": "depositCount",    "type": "u64"                     },
+          { "name": "bump",            "type": "u8"                      }
+        ]
+      }
+    },
+    {
+      "name": "ChainBalance",
+      "docs": ["Encrypted aggregate balance per chain — used by the rebalance policy."],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "vault",            "type": "publicKey"               },
+          { "name": "chain",            "type": { "defined": "DWalletChain" } },
+          { "name": "encryptedBalance", "type": { "defined": "EncU64" }   },
+          { "name": "bump",             "type": "u8"                      }
+        ]
+      }
+    }
+  ],
+  "types": [
+    {
+      "name": "EncU64",
+      "docs": ["Encrypt FHE ciphertext representing an encrypted u64 (e.g. a balance or weight)."],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "bytes", "type": "bytes" }
+        ]
+      }
+    },
+    {
+      "name": "EncBool",
+      "docs": ["Encrypt FHE ciphertext representing an encrypted boolean (e.g. a rebalance trigger)."],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "bytes", "type": "bytes" }
+        ]
+      }
+    },
+    {
+      "name": "DWalletChain",
+      "docs": ["Supported native chains for Ika dWallet custody."],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          { "name": "Bitcoin"  },
+          { "name": "Ethereum" },
+          { "name": "Sui"      },
+          { "name": "Solana"   },
+          { "name": "Zcash"    },
+          { "name": "Cosmos"   }
+        ]
+      }
+    }
+  ],
+  "events": [
+    {
+      "name": "VaultInitialized",
+      "fields": [
+        { "name": "vault",     "type": "publicKey", "index": false },
+        { "name": "authority", "type": "publicKey", "index": false },
+        { "name": "vaultId",   "type": "u64",       "index": false }
+      ]
+    },
+    {
+      "name": "DWalletRegistered",
+      "fields": [
+        { "name": "vault",     "type": "publicKey",                    "index": false },
+        { "name": "chain",     "type": { "defined": "DWalletChain" },  "index": false },
+        { "name": "dwalletId", "type": { "array": ["u8", 32] },        "index": false }
+      ]
+    },
+    {
+      "name": "EncryptedDeposit",
+      "fields": [
+        { "name": "vault",  "type": "publicKey",                   "index": false },
+        { "name": "user",   "type": "publicKey",                   "index": false },
+        { "name": "chain",  "type": { "defined": "DWalletChain" }, "index": false }
+      ]
+    },
+    {
+      "name": "RebalanceRequested",
+      "fields": [
+        { "name": "vault",     "type": "publicKey",                   "index": false },
+        { "name": "fromChain", "type": { "defined": "DWalletChain" }, "index": false },
+        { "name": "toChain",   "type": { "defined": "DWalletChain" }, "index": false }
+      ]
+    },
+    {
+      "name": "WithdrawInitiated",
+      "fields": [
+        { "name": "vault",  "type": "publicKey",                   "index": false },
+        { "name": "user",   "type": "publicKey",                   "index": false },
+        { "name": "chain",  "type": { "defined": "DWalletChain" }, "index": false }
+      ]
+    }
+  ],
+  "errors": [
+    { "code": 6000, "name": "ChainWeightMismatch",  "msg": "Chain and weight vectors have different lengths." },
+    { "code": 6001, "name": "TooManyChains",         "msg": "Too many chains configured for this vault." },
+    { "code": 6002, "name": "ChainNotSupported",     "msg": "Chain is not supported by this vault." },
+    { "code": 6003, "name": "TooManyDWallets",       "msg": "Too many dWallets already registered." },
+    { "code": 6004, "name": "AddressTooLong",        "msg": "Foreign address exceeds max length." },
+    { "code": 6005, "name": "VaultPaused",           "msg": "Vault is paused." },
+    { "code": 6006, "name": "Unauthorized",          "msg": "Caller is not authorized for this action." },
+    { "code": 6007, "name": "FheOpFailed",           "msg": "FHE operation failed or returned an unexpected shape." },
+    { "code": 6008, "name": "IkaCpiFailed",          "msg": "Ika CPI failed or was rejected." },
+    { "code": 6009, "name": "DecryptionFailed",      "msg": "Threshold decryption CPI failed or returned an unexpected result." }
+  ],
+  "metadata": {
+    "address": "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS",
+    "origin": "anchor",
+    "bpfByteCodeFilename": "bov.so"
+  }
+}

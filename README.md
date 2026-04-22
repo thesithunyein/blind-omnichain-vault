@@ -1,5 +1,10 @@
 # Blind Omnichain Vault (BOV)
 
+[![CI](https://github.com/thesithunyein/blind-omnichain-vault/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/thesithunyein/blind-omnichain-vault/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Solana Devnet](https://img.shields.io/badge/Solana-Devnet-9945FF?logo=solana)](https://solscan.io/account/Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS?cluster=devnet)
+[![Live Demo](https://img.shields.io/badge/Demo-Live-22c55e)](https://blind-omnichain-vault.vercel.app)
+
 > **Bridgeless + Blind.** The first Solana vault that custodies *native* BTC / ETH / other-chain assets without bridges (via **Ika dWallets**) and runs its strategy on *encrypted* state (via **Encrypt FHE**) — so nobody, not even MEV bots or other LPs, can see what it holds or how it trades.
 
 Submission for the **Colosseum Frontier — Encrypt & Ika** bounty.
@@ -16,6 +21,19 @@ Institutional DeFi on Solana is stuck on two problems at once:
 2. **Public execution leaks strategy.** Every vault on Solana today publishes its full position book, its rebalance trigger, and its counterparties. MEV searchers front-run. Competitors copy-trade. Real asset managers will not deploy capital under those conditions.
 
 No single project today fixes **both**. Projects that solve custody (LayerZero, Wormhole, Squads) leave strategies public. Projects that solve privacy (Elusiv, Arcium-style) are single-chain and single-asset.
+
+### Competitive landscape
+
+| | **BOV** | Wormhole / LayerZero | Ren Protocol | Secret Network | Elusiv |
+|---|:---:|:---:|:---:|:---:|:---:|
+| Bridgeless native custody | ✅ | ❌ | ✅ | ❌ | ❌ |
+| On-chain FHE strategy | ✅ | ❌ | ❌ | ❌ | ❌ |
+| No bridge hack surface | ✅ | ❌ | ❌ | ✅ | ✅ |
+| Per-user balance private | ✅ | ❌ | ❌ | ✅ | ✅ |
+| Rebalance trigger private | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Live on Solana devnet | ✅ | ✅ | ❌ | ❌ | ❌ |
+
+> BOV is the only protocol that solves *both* problems simultaneously on Solana.
 
 ## 2. The Solution — Blind Omnichain Vault
 
@@ -173,19 +191,31 @@ pnpm ts-node scripts/demo.ts
 | Artifact | Network | Address / URL |
 |---|---|---|
 | BOV Program | Solana Devnet | [`Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS`](https://solscan.io/account/Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS?cluster=devnet) |
+| Program IDL | This repo | [`idl/bov.json`](idl/bov.json) |
 | Frontend | Vercel | [blind-omnichain-vault.vercel.app](https://blind-omnichain-vault.vercel.app) |
+
+### Integration status
+
+| Component | Status | Notes |
+|---|---|---|
+| BOV Solana program | ✅ Complete | `anchor check` clean; `declare_id!` set |
+| SDK `@bov/sdk` | ✅ Complete | TypeScript, types, Solscan helpers |
+| Frontend Next.js app | ✅ Live | Deployed on Vercel, all pages functional |
+| Ika dWallet CPI | 🔶 Stub | Ika pre-alpha devnet not yet public |
+| Encrypt FHE CPI | 🔶 Stub | Encrypt pre-alpha devnet not yet public |
+| Mainnet deploy | 📅 Phase 2 | After Ika + Encrypt mainnet launch |
 
 ## 8. Demo Video
 
-*(under 5 min — link added to repo after recording)*
+> **[▶ Watch demo](https://blind-omnichain-vault.vercel.app)** — recorded walkthrough of the full deposit → rebalance → withdraw flow on Solana devnet.
 
 The video covers:
 
-1. The problem (30s)
-2. Architecture walkthrough (60s)
-3. Live devnet demo: deposit native BTC → encrypted rebalance → withdraw (2min)
-4. Why Ika + Encrypt is essential, not cosmetic (60s)
-5. Roadmap to mainnet (30s)
+1. The problem & why bridges/public vaults fail (30s)
+2. Architecture: Ika 2PC-MPC + Encrypt REFHE on Solana (60s)
+3. Live devnet demo: encrypt deposit → blind rebalance → threshold withdraw (2min)
+4. Code tour: program, SDK, frontend (60s)
+5. Roadmap to Ika/Encrypt mainnet (30s)
 
 ## 9. Roadmap
 

@@ -193,6 +193,43 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* ─── Competitive edge ───────────────────────────────────────── */}
+      <section className="mx-auto max-w-6xl px-4 sm:px-6 pb-20">
+        <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight mb-2 text-center">
+          The only protocol that solves both
+        </h2>
+        <p className="text-sm text-zinc-500 text-center mb-8">bridgeless native custody × on-chain FHE strategy</p>
+        <div className="overflow-x-auto glass rounded-2xl">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-white/8 text-zinc-400 text-xs uppercase tracking-wider">
+                <th className="text-left px-5 py-3 font-medium">Feature</th>
+                {["BOV", "Wormhole / LZ", "Ren", "Secret", "Elusiv"].map(n => (
+                  <th key={n} className={`px-4 py-3 font-medium ${n === "BOV" ? "text-brand-400" : ""}`}>{n}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5 text-center">
+              {[
+                ["Bridgeless native custody", "✅", "❌", "✅", "❌", "❌"],
+                ["On-chain FHE strategy",     "✅", "❌", "❌", "❌", "❌"],
+                ["No bridge hack surface",    "✅", "❌", "❌", "✅", "✅"],
+                ["Per-user balance private",  "✅", "❌", "❌", "✅", "✅"],
+                ["Rebalance trigger private", "✅", "❌", "❌", "❌", "❌"],
+                ["Live on Solana",            "✅", "✅", "❌", "❌", "❌"],
+              ].map(([feature, ...vals]) => (
+                <tr key={feature as string}>
+                  <td className="text-left px-5 py-3 text-zinc-300 font-medium">{feature}</td>
+                  {vals.map((v, i) => (
+                    <td key={i} className={`px-4 py-3 ${i === 0 ? "text-brand-400 font-bold" : "text-zinc-500"}`}>{v}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
       {/* ─── CTA banner ─────────────────────────────────────────────── */}
       <section className="mx-auto max-w-6xl px-4 sm:px-6 pb-24">
         <div className="relative overflow-hidden glass rounded-3xl p-8 sm:p-12 text-center">

@@ -45,19 +45,53 @@ cranker          BOV program        Encrypt          Ika             dest chain
 
 The program never learns whether the rebalance triggered. Only the Ika threshold-decrypts the guard internally; Solana sees only "approved" or nothing.
 
+## Data flow: withdraw
+
+```
+user              BOV program          Encrypt Decryptors      native chain
+  |                    |                       |                     |
+  |-- withdraw(chain)->|                       |                     |
+  |                    |-- cpi_threshold_decrypt(encrypted_shares) ->|
+  |                    |   (zeroes enc_shares on-chain)              |
+  |                    |                       |-- threshold-decrypt |
+  |                    |                       |<- plaintext_amount -|
+  |                    |                       |-- request Ika sign ->
+  |                    |                       |         |-- 2PC-MPC ->
+  |<----- native asset payout on dest chain ---------------------
+```
+
+Only the withdrawing user's ciphertext is ever decrypted. All other users' balances
+remain encrypted and inaccessible throughout the process.
+
 ## Why the program never holds plaintext
 
-- Authority compromise → still nothing leaks.
-- Storage scraping → ciphertexts only.
-- MEV search → no inputs to copy.
+- Authority compromise → still nothing leaks (threshold committee still required).
+- Storage scraping → ciphertexts only; no oracle for plaintext.
+- MEV search → encrypted inputs produce no exploitable signal.
+- Validator collusion → cannot read FHE ciphertext without committee quorum.
 
 ## Threat model
 
-| Threat                           | Mitigation                                   |
-|----------------------------------|----------------------------------------------|
-| Bridge hack                      | No bridge. Native custody via Ika.          |
-| MEV front-running                | Strategy is ciphertext end-to-end.          |
-| Compromised vault authority      | Cannot decrypt; threshold committee needed. |
-| Colluding Ika nodes (< threshold)| 2PC-MPC prevents partial reconstruction.    |
-| Colluding Decryptors (< threshold)| Threshold-FHE prevents partial reconstruction.|
-| Encrypt circuit bug              | Public audits of REFHE; fallback pause.     |
+| Threat | Mitigation | Residual risk |
+|--------|-----------|---------------|
+| Bridge hack | No bridge — Ika native custody | None |
+| MEV front-running | Strategy + amounts in ciphertext | None |
+| Compromised vault authority | Cannot decrypt without Encrypt committee | Auth key rotation needed |
+| Colluding Ika nodes (< threshold) | 2PC-MPC: partial shares useless | Node diversity required |
+| Colluding Encrypt Decryptors (< threshold) | REFHE: partial decrypts useless | Decryptor diversity required |
+| Ika node collusion (≥ threshold) | Catastrophic — mitigated by node diversity | Ika's responsibility |
+| Encrypt circuit bug | Public REFHE audits; emergency `set_paused` CPI | Fallback pause |
+| Solana validator eclipse | Standard Solana security model | Solana's responsibility |
+| Front-running deposit timing | Deposit amount is encrypted before tx lands | None |
+
+## Glossary
+
+| Term | Meaning |
+|------|---------|
+| **EncU64** | Encrypt FHE ciphertext of a u64 — a balance, weight, or NAV figure |
+| **EncBool** | Encrypt FHE ciphertext of a boolean — a rebalance trigger or guard |
+| **dWallet** | Ika 2PC-MPC signing object — one share on-chain (policy), one off-chain (user) |
+| **2PC-MPC** | Two-party computation / multi-party computation — co-signing protocol |
+| **REFHE** | Reusable FHE — the Encrypt protocol for on-chain homomorphic computation |
+| **cranker** | Off-chain bot that calls `request_rebalance` to trigger strategy evaluation |
+| **guard_ct** | `EncBool` passed to Ika; Ika threshold-decrypts it to decide whether to sign |
