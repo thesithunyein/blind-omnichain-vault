@@ -29,7 +29,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   <span className="h-1.5 w-1.5 rounded-full bg-brand-500 animate-pulse" />
                   Solana Devnet
                 </span>
-                <span>Powered by Ika + Encrypt</span>
+                <a
+                  href="https://solscan.io/account/Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS?cluster=devnet"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-mono hover:text-white transition-colors"
+                >
+                  Fg6P…LnS ↗
+                </a>
                 <a
                   href="https://github.com/thesithunyein/blind-omnichain-vault"
                   target="_blank"

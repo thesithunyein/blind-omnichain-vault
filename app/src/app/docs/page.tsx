@@ -138,8 +138,45 @@ export default function DocsPage() {
         </div>
       </section>
 
+      {/* Program ID */}
+      <section className="mt-10 glass rounded-2xl overflow-hidden">
+        <div className="px-6 py-5 border-b border-white/[0.06]">
+          <h2 className="text-base font-bold text-white">Deployed Program</h2>
+        </div>
+        <div className="px-6 py-5 space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+            <span className="text-xs text-zinc-500 uppercase tracking-wider w-28 shrink-0">Network</span>
+            <span className="text-sm text-zinc-200">Solana Devnet</span>
+          </div>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+            <span className="text-xs text-zinc-500 uppercase tracking-wider w-28 shrink-0">Program ID</span>
+            <a
+              href="https://solscan.io/account/Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS?cluster=devnet"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 font-mono text-xs text-brand-400 hover:text-brand-300 transition-colors"
+            >
+              Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS
+              <ExternalLink className="h-3 w-3" />
+            </a>
+          </div>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+            <span className="text-xs text-zinc-500 uppercase tracking-wider w-28 shrink-0">Frontend</span>
+            <a
+              href="https://blind-omnichain-vault.vercel.app"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-xs text-brand-400 hover:text-brand-300 transition-colors"
+            >
+              blind-omnichain-vault.vercel.app
+              <ExternalLink className="h-3 w-3" />
+            </a>
+          </div>
+        </div>
+      </section>
+
       {/* CTA */}
-      <div className="mt-10 flex flex-col sm:flex-row items-center gap-4 rounded-2xl border border-brand-900 bg-brand-950/20 p-6">
+      <div className="mt-6 flex flex-col sm:flex-row items-center gap-4 glass rounded-2xl border-brand-900/40 p-6">
         <div className="flex-1">
           <p className="text-sm font-bold text-white mb-1">Ready to try it?</p>
           <p className="text-xs text-zinc-400">Connect your Solana wallet and make a blind deposit.</p>

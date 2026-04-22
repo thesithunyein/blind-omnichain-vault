@@ -2,6 +2,14 @@
 members = ["programs/*"]
 resolver = "2"
 
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["thesithunyein"]
+repository = "https://github.com/thesithunyein/blind-omnichain-vault"
+description = "Blind Omnichain Vault — Solana program workspace"
+license = "MIT"
+
 [profile.release]
 overflow-checks = true
 lto = "fat"

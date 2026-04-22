@@ -25,7 +25,7 @@ export function EncryptedBadge({ label, size = "md", className, animate = true }
 
   useEffect(() => {
     if (!animate) return;
-    const id = setInterval(() => setHex(randomHex(hexLen)), 1800);
+    const id = setInterval(() => setHex(randomHex(hexLen)), 2200);
     return () => clearInterval(id);
   }, [hexLen, animate]);
 

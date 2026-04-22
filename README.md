@@ -170,11 +170,10 @@ pnpm ts-node scripts/demo.ts
 
 ## 7. Deployed Artifacts
 
-| Artifact | Network | Address |
+| Artifact | Network | Address / URL |
 |---|---|---|
-| BOV Program | Solana Devnet | `Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS` *(placeholder — set after `anchor deploy`)* |
-| Demo Vault | Solana Devnet | *(set by `scripts/demo.ts`)* |
-| Frontend | Vercel | *(added post-deploy)* |
+| BOV Program | Solana Devnet | [`Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS`](https://solscan.io/account/Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS?cluster=devnet) |
+| Frontend | Vercel | [blind-omnichain-vault.vercel.app](https://blind-omnichain-vault.vercel.app) |
 
 ## 8. Demo Video
 

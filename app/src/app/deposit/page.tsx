@@ -49,7 +49,7 @@ export default function DepositPage() {
       </div>
 
       {!connected ? (
-        <div className="rounded-2xl border border-surface-border bg-surface-card p-10 flex flex-col items-center gap-4 text-center">
+        <div className="glass rounded-2xl p-10 flex flex-col items-center gap-4 text-center">
           <div className="h-14 w-14 rounded-full border border-surface-border flex items-center justify-center">
             <Lock className="h-6 w-6 text-zinc-600" />
           </div>
@@ -60,7 +60,7 @@ export default function DepositPage() {
           <WalletMultiButton />
         </div>
       ) : step === "done" ? (
-        <div className="rounded-2xl border border-brand-900 bg-brand-950/20 p-10 flex flex-col items-center gap-5 text-center animate-fade-in">
+        <div className="glass rounded-2xl border-brand-900/50 p-10 flex flex-col items-center gap-5 text-center animate-fade-in">
           <div className="h-16 w-16 rounded-full bg-brand-900/40 border border-brand-700 flex items-center justify-center">
             <Check className="h-8 w-8 text-brand-400" />
           </div>
@@ -124,10 +124,10 @@ export default function DepositPage() {
 
           {/* Step: Select chain */}
           <div className={cn(
-            "rounded-2xl border bg-surface-card overflow-hidden transition-all",
-            step === "select-chain" ? "border-brand-900" : "border-surface-border opacity-60"
+            "glass rounded-2xl overflow-hidden transition-all",
+            step === "select-chain" ? "border-brand-900/60" : "border-white/[0.04] opacity-60"
           )}>
-            <div className="px-6 py-4 border-b border-surface-border flex items-center justify-between">
+            <div className="px-6 py-4 border-b border-white/[0.06] flex items-center justify-between">
               <span className="text-sm font-semibold text-white">1. Select Chain</span>
               {step !== "select-chain" && (
                 <span className="text-xs text-brand-400">{selectedChain.name}</span>
@@ -170,11 +170,11 @@ export default function DepositPage() {
 
           {/* Step: Show dWallet address */}
           <div className={cn(
-            "rounded-2xl border bg-surface-card overflow-hidden transition-all",
-            step === "show-address" ? "border-brand-900" : "border-surface-border",
+            "glass rounded-2xl overflow-hidden transition-all",
+            step === "show-address" ? "border-brand-900/60" : "border-white/[0.04]",
             ["select-chain"].includes(step) ? "opacity-40 pointer-events-none" : ""
           )}>
-            <div className="px-6 py-4 border-b border-surface-border">
+            <div className="px-6 py-4 border-b border-white/[0.06]">
               <span className="text-sm font-semibold text-white">2. Send to your dWallet Address</span>
             </div>
             {(step === "show-address" || ["encrypting","confirming"].includes(step)) && (
@@ -228,7 +228,7 @@ export default function DepositPage() {
 
           {/* Step: Encrypting / Confirming */}
           {(step === "encrypting" || step === "confirming") && (
-            <div className="rounded-2xl border border-brand-900 bg-surface-card p-8 flex flex-col items-center gap-4 text-center animate-fade-in">
+            <div className="glass rounded-2xl border-brand-900/50 p-8 flex flex-col items-center gap-4 text-center animate-fade-in">
               <div className="relative h-16 w-16">
                 <div className="absolute inset-0 rounded-full border-2 border-brand-800" />
                 <div className="absolute inset-0 rounded-full border-t-2 border-brand-400 animate-spin" />

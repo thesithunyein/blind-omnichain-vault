@@ -1,5 +1,8 @@
 # Encrypt integration
 
+> Live demo: **[blind-omnichain-vault.vercel.app](https://blind-omnichain-vault.vercel.app)**  
+> Program: `Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS` on [Solscan devnet](https://solscan.io/account/Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS?cluster=devnet)
+
 All balance-like and policy-like state on-chain is stored as `EncU64` ciphertexts. The Solana program never holds plaintext.
 
 ## On-chain (Rust)

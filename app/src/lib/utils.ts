@@ -17,3 +17,7 @@ export function timeAgo(date: Date): string {
   if (secs < 86400) return `${Math.floor(secs / 3600)}h ago`;
   return `${Math.floor(secs / 86400)}d ago`;
 }
+
+export function formatBps(bps: number, decimals = 0): string {
+  return `${(bps / 100).toFixed(decimals)}%`;
+}

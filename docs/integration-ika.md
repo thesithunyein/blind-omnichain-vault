@@ -1,5 +1,8 @@
 # Ika integration
 
+> Live demo: **[blind-omnichain-vault.vercel.app](https://blind-omnichain-vault.vercel.app)**  
+> Program: `Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS` on [Solscan devnet](https://solscan.io/account/Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS?cluster=devnet)
+
 We use Ika exclusively through its Solana pre-alpha dWallet surface.
 
 ## On-chain (Rust)

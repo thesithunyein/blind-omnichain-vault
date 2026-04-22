@@ -17,7 +17,7 @@ interface Props {
 export function StatCard({ icon: Icon, label, value, encrypted = false, delta, accent = "brand", className }: Props) {
   return (
     <div className={cn(
-      "relative overflow-hidden rounded-xl border border-surface-border bg-surface-card p-5 transition-all hover:border-brand-900 hover:glow-green-sm",
+      "relative overflow-hidden rounded-xl glass p-5 transition-all hover:shadow-glow-md",
       className
     )}>
       <div className="flex items-start justify-between">
