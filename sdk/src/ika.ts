@@ -104,9 +104,12 @@ function mockAddressFor(chain: DWalletChain, id: Uint8Array): string {
 }
 
 async function sha256(data: Uint8Array): Promise<ArrayBuffer> {
-  // Works in Node 20+ and browser.
+  // Works in Node 20+ and browser. Copy into a fresh ArrayBuffer so the
+  // input satisfies WebCrypto's BufferSource contract across lib.dom variants.
+  const buf = new ArrayBuffer(data.byteLength);
+  new Uint8Array(buf).set(data);
   const subtle =
     (globalThis.crypto && (globalThis.crypto as Crypto).subtle) ||
     ((await import("crypto")).webcrypto.subtle);
-  return subtle.digest("SHA-256", data);
+  return subtle.digest("SHA-256", buf);
 }
