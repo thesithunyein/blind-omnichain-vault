@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Lock, Zap, Globe, ArrowRight, Bitcoin, ExternalLink, ShieldCheck, Eye, RefreshCw, ChevronRight } from "lucide-react";
 import { EncryptedBadge } from "@/components/EncryptedBadge";
 import { BovLogo } from "@/components/BovLogo";
-import { MOCK_VAULT } from "@/lib/mock-data";
+import { MOCK_VAULT, SOLSCAN_PROGRAM_URL } from "@/lib/mock-data";
 
 export default function HomePage() {
   return (

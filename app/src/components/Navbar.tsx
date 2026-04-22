@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, ArrowDownToLine, BookOpen, Menu, X, Home } from "lucide-react";
+import { LayoutDashboard, ArrowDownToLine, BookOpen, Menu, X, Home, Github } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";

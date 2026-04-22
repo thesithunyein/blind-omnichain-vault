@@ -3,6 +3,7 @@
 import { Users, Wallet, RefreshCw, Clock, CheckCircle, AlertTriangle, ExternalLink } from "lucide-react";
 import { EncryptedBadge } from "@/components/EncryptedBadge";
 import { StatCard } from "@/components/StatCard";
+import { SOLSCAN_PROGRAM_URL } from "@/lib/mock-data";
 import { MOCK_VAULT, MOCK_USER, MOCK_REBALANCE_LOG, solscanTxUrl, shortSig } from "@/lib/mock-data";
 import { timeAgo, shortAddress } from "@/lib/utils";
 import { useWallet } from "@solana/wallet-adapter-react";

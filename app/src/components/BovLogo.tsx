@@ -1,6 +1,7 @@
 interface Props {
   size?: number;
   className?: string;
+  label?: string;
 }
 
 export function BovLogo({ size = 32, className = "" }: Props) {

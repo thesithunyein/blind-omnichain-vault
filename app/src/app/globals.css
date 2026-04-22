@@ -133,4 +133,8 @@ body {
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
+
+  .focus-ring {
+    @apply outline-none ring-2 ring-brand-500/60 ring-offset-2 ring-offset-surface-bg;
+  }
 }
