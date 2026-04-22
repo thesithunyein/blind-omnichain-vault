@@ -4,6 +4,8 @@
 
 Submission for the **Colosseum Frontier — Encrypt & Ika** bounty.
 
+**🔗 Live Demo: [blind-omnichain-vault.vercel.app](https://blind-omnichain-vault.vercel.app)**
+
 ---
 
 ## 1. The Problem
