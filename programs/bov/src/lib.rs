@@ -29,7 +29,7 @@ use crate::errors::BovError;
 use crate::ika::DWalletChain;
 use crate::state::*;
 
-declare_id!("BOV1111111111111111111111111111111111111111");
+declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 
 #[program]
 pub mod bov {

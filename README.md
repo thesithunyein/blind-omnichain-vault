@@ -170,7 +170,7 @@ pnpm ts-node scripts/demo.ts
 
 | Artifact | Network | Address |
 |---|---|---|
-| BOV Program | Solana Devnet | `BOV1111111111111111111111111111111111111111` *(set after `anchor deploy`)* |
+| BOV Program | Solana Devnet | `Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS` *(placeholder — set after `anchor deploy`)* |
 | Demo Vault | Solana Devnet | *(set by `scripts/demo.ts`)* |
 | Frontend | Vercel | *(added post-deploy)* |
 

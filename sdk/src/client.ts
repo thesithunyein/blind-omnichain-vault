@@ -17,7 +17,7 @@ import { encryptU64, encryptWeightsBps } from "./encrypt";
 import { ikaProvider } from "./ika";
 
 export const BOV_PROGRAM_ID = new PublicKey(
-  "BOV1111111111111111111111111111111111111111",
+  "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS",
 );
 
 export class BovClient {
