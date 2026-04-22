@@ -11,6 +11,9 @@
  *
  * The stub below captures the public API shape we depend on. Swap the body
  * for real Ika SDK calls once the devnet endpoint is wired.
+ *
+ * Live demo: https://blind-omnichain-vault.vercel.app
+ * Program:   Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS (Solana devnet)
  */
 
 import { PublicKey } from "@solana/web3.js";
