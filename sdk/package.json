@@ -19,5 +19,12 @@
     "@types/node": "^22.0.0",
     "typescript": "^5.5.4"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/thesithunyein/blind-omnichain-vault",
+    "directory": "sdk"
+  },
+  "homepage": "https://blind-omnichain-vault.vercel.app",
+  "keywords": ["solana", "fhe", "dwallet", "ika", "encrypt", "blind-vault"]
 }

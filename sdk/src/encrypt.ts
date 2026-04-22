@@ -8,6 +8,8 @@
  * NOTE: This is a devnet pre-alpha. We keep a clean in-memory reference
  * implementation behind the same interface, so tests run deterministically
  * until the Encrypt devnet endpoint is wired in via `attachEncryptProvider()`.
+ *
+ * Live demo: https://blind-omnichain-vault.vercel.app
  */
 
 import type { EncBool, EncU64 } from "./types";

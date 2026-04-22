@@ -41,3 +41,7 @@ dist/
 build/
 coverage/
 *.log
+
+# Misc
+.turbo/
+snapshot-*/
