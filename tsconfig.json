@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "forceConsistentCasingInFileNames": true,
+    "declaration": true,
+    "outDir": "dist",
+    "baseUrl": ".",
+    "paths": {
+      "@bov/sdk": ["sdk/src"]
+    }
+  },
+  "include": ["sdk/src/**/*", "tests/**/*", "scripts/**/*"],
+  "exclude": ["node_modules", "app", "**/dist"]
+}

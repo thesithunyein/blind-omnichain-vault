@@ -1,0 +1,28 @@
+{
+  "name": "blind-omnichain-vault",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Bridgeless + Blind vault on Solana, powered by Ika dWallets and Encrypt FHE.",
+  "workspaces": [
+    "sdk",
+    "app"
+  ],
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "dev": "pnpm --filter app dev",
+    "demo": "ts-node scripts/demo.ts",
+    "lint": "pnpm -r lint"
+  },
+  "devDependencies": {
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.4",
+    "@types/node": "^22.0.0"
+  },
+  "packageManager": "pnpm@9.7.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT",
+  "author": "thesithunyein"
+}
