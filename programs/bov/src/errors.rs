@@ -20,4 +20,6 @@ pub enum BovError {
     FheOpFailed,
     #[msg("Ika CPI failed or was rejected.")]
     IkaCpiFailed,
+    #[msg("Threshold decryption CPI failed or returned an unexpected result.")]
+    DecryptionFailed,
 }

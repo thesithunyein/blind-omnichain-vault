@@ -15,6 +15,8 @@
 //! This module intentionally contains thin stubs that match the *shape* of the
 //! Encrypt pre-alpha devnet interface, so it compiles standalone. Swap the stub
 //! bodies for real CPIs when the Encrypt program ID and IDL are final.
+//!
+//! Live demo: <https://blind-omnichain-vault.vercel.app>
 
 use anchor_lang::prelude::*;
 

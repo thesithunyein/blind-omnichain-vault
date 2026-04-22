@@ -56,11 +56,12 @@ pub struct UserLedger {
     pub owner: Pubkey,
     pub vault: Pubkey,
     pub encrypted_shares: EncU64,
+    pub deposit_count: u64,
     pub bump: u8,
 }
 
 impl UserLedger {
-    pub const SIZE: usize = 8 + 32 + 32 + EncU64::MAX_SIZE + 1;
+    pub const SIZE: usize = 8 + 32 + 32 + EncU64::MAX_SIZE + 8 + 1;
 }
 
 #[account]

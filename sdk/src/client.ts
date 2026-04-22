@@ -20,6 +20,17 @@ export const BOV_PROGRAM_ID = new PublicKey(
   "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS",
 );
 
+/** https://solscan.io/account/Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS?cluster=devnet */
+export const SOLSCAN_DEVNET = "https://solscan.io";
+
+export function solscanTx(sig: string): string {
+  return `${SOLSCAN_DEVNET}/tx/${sig}?cluster=devnet`;
+}
+
+export function solscanAccount(addr: string): string {
+  return `${SOLSCAN_DEVNET}/account/${addr}?cluster=devnet`;
+}
+
 export class BovClient {
   constructor(
     public readonly connection: Connection,

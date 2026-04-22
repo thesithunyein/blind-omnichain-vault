@@ -12,6 +12,8 @@
 //! guard condition so Ika co-signs only if Encrypt's threshold decryption of
 //! that ciphertext evaluates to `true`. This keeps the rebalance trigger
 //! private end-to-end.
+//!
+//! Live demo: <https://blind-omnichain-vault.vercel.app>
 
 use anchor_lang::prelude::*;
 

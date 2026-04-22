@@ -6,6 +6,8 @@
 //!
 //! All arithmetic is via the Encrypt program. Neither this program nor any
 //! observer ever sees the plaintext trigger value.
+//!
+//! Live demo: <https://blind-omnichain-vault.vercel.app>
 
 use anchor_lang::prelude::*;
 

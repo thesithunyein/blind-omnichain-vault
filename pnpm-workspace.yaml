@@ -1,3 +1,4 @@
 packages:
   - "sdk"
   - "app"
+  # scripts/ runs at root level via ts-node / pnpm demo
