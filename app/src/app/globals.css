@@ -1,0 +1,63 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #0d0d0f;
+  --foreground: #e8e8f0;
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #111114; }
+::-webkit-scrollbar-thumb { background: #2a2a35; border-radius: 3px; }
+
+/* Wallet adapter overrides */
+.wallet-adapter-button {
+  background: linear-gradient(135deg, #16a34a, #15803d) !important;
+  border-radius: 8px !important;
+  font-size: 14px !important;
+  height: 40px !important;
+  padding: 0 16px !important;
+}
+.wallet-adapter-button:hover {
+  background: linear-gradient(135deg, #22c55e, #16a34a) !important;
+}
+.wallet-adapter-modal-wrapper {
+  background: #111114 !important;
+  border: 1px solid #1e1e24 !important;
+}
+
+@layer utilities {
+  .text-balance { text-wrap: balance; }
+  .glow-green {
+    box-shadow: 0 0 20px rgba(34, 197, 94, 0.15);
+  }
+  .glow-green-sm {
+    box-shadow: 0 0 10px rgba(34, 197, 94, 0.1);
+  }
+  .cipher-text {
+    font-family: 'JetBrains Mono', monospace;
+    color: #22c55e;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    opacity: 0.8;
+  }
+}
