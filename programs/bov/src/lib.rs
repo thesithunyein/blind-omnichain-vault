@@ -15,6 +15,9 @@
 //! - [`withdraw`]          — threshold-decrypts the caller's share only.
 //!
 //! Nothing except the caller's own withdraw output is ever decrypted on-chain.
+//!
+//! Live demo: <https://blind-omnichain-vault.vercel.app>
+//! Devnet explorer: <https://solscan.io/?cluster=devnet>
 
 use anchor_lang::prelude::*;
 

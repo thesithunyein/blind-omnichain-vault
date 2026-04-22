@@ -1,23 +1,38 @@
 # BOV Frontend (Next.js 14)
 
-Placeholder — the UI is built in the next milestone.
+Live demo → **[blind-omnichain-vault.vercel.app](https://blind-omnichain-vault.vercel.app)**
 
-Planned stack:
+A macOS-native glass morphism UI for the Blind Omnichain Vault — a Solana program that
+manages multi-chain native assets through **Ika dWallets** while keeping every balance,
+strategy parameter, and rebalance signal encrypted via **Encrypt FHE**.
 
-- Next.js 14 App Router
-- TailwindCSS + shadcn/ui
-- Solana Wallet Adapter
-- `@bov/sdk` for all onchain + Ika + Encrypt interactions
+## Stack
 
-Planned screens:
+- **Next.js 14** App Router (React 18, TypeScript)
+- **Tailwind CSS** — macOS glass morphism design tokens, Inter font, shimmer animations
+- **Solana Wallet Adapter** — Phantom / Backpack / any Solana wallet
+- **`@bov/sdk`** — onchain Anchor bindings, Ika dWallet orchestration, Encrypt FHE helpers
 
-- Landing (pitch, live vault stats — all ciphertext badges)
-- Vault dashboard (your encrypted position, P&L, chain breakdown — decrypted only for you)
-- Deposit flow (pick chain → get dWallet address → QR)
-- Rebalance log (shows encrypted trigger events, not amounts)
+## Screens
 
-Run:
+| Route | Description |
+|-------|-------------|
+| `/` | Hero landing — live encrypted NAV badge, feature cards, how-it-works, tech stack |
+| `/dashboard` | Vault stats, chain allocation bars, your encrypted position, rebalance log with Solscan devnet links |
+| `/deposit` | Pick chain → get Ika dWallet address → QR code |
+| `/docs` | SDK usage and integration guides |
+
+## Run locally
 
 ```bash
 pnpm --filter app dev
+# → http://localhost:3000
 ```
+
+## Design highlights
+
+- All user balances, P&L, and strategy weights display as **EncryptedBadge** — animated
+  ciphertext placeholders. Nothing sensitive is ever shown in plaintext.
+- Every on-chain transaction in the rebalance log links directly to
+  **[Solscan devnet](https://solscan.io/?cluster=devnet)** for full transparency.
+- Fully responsive — hamburger nav on mobile, glass cards on desktop.

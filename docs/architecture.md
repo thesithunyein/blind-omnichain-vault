@@ -1,5 +1,8 @@
 # Architecture
 
+> Live demo: **[blind-omnichain-vault.vercel.app](https://blind-omnichain-vault.vercel.app)**  
+> Devnet transactions: [Solscan devnet](https://solscan.io/?cluster=devnet)
+
 ## Layers
 
 1. **Native chains** — Bitcoin, Ethereum, Sui, etc. Hold the real assets. Addresses are dWallet public keys.

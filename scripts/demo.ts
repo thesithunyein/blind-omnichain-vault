@@ -4,6 +4,8 @@
  *
  *   pnpm demo
  *
+ * Live demo UI: https://blind-omnichain-vault.vercel.app
+ *
  * Demonstrates the *data flow* of a Blind Omnichain Vault:
  *   1. Init vault with encrypted target weights.
  *   2. User begins a BTC deposit → Ika creates a dWallet, returns a BTC address.
