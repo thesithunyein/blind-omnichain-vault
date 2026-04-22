@@ -1,12 +1,16 @@
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --background: #0d0d0f;
-  --foreground: #e8e8f0;
+  --background: #0a0a0c;
+  --foreground: #f0f0f4;
+  --brand: #22c55e;
+  --surface-card: rgba(255,255,255,0.03);
+  --surface-border: rgba(255,255,255,0.07);
+  --radius: 14px;
 }
 
 * {
@@ -21,43 +25,112 @@ body {
   overflow-x: hidden;
   background: var(--background);
   color: var(--foreground);
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: "Inter", ui-sans-serif, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Scrollbar */
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: #111114; }
-::-webkit-scrollbar-thumb { background: #2a2a35; border-radius: 3px; }
+/* macOS-style scrollbar */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.22); }
 
-/* Wallet adapter overrides */
+/* Wallet adapter button overrides — macOS pill style */
 .wallet-adapter-button {
-  background: linear-gradient(135deg, #16a34a, #15803d) !important;
-  border-radius: 8px !important;
-  font-size: 14px !important;
-  height: 40px !important;
+  background: rgba(34, 197, 94, 0.12) !important;
+  border: 1px solid rgba(34, 197, 94, 0.25) !important;
+  border-radius: 99px !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  height: 36px !important;
   padding: 0 16px !important;
+  color: #86efac !important;
+  transition: all 0.2s ease !important;
+  letter-spacing: -0.01em !important;
 }
 .wallet-adapter-button:hover {
-  background: linear-gradient(135deg, #22c55e, #16a34a) !important;
+  background: rgba(34, 197, 94, 0.2) !important;
+  border-color: rgba(34, 197, 94, 0.4) !important;
+  color: #4ade80 !important;
+  transform: none !important;
+  box-shadow: 0 0 16px rgba(34, 197, 94, 0.15) !important;
+}
+.wallet-adapter-button-trigger {
+  background: rgba(34, 197, 94, 0.1) !important;
 }
 .wallet-adapter-modal-wrapper {
-  background: #111114 !important;
-  border: 1px solid #1e1e24 !important;
+  background: rgba(14, 14, 18, 0.95) !important;
+  backdrop-filter: blur(24px) !important;
+  border: 1px solid rgba(255,255,255,0.08) !important;
+  border-radius: 20px !important;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.6) !important;
+}
+.wallet-adapter-modal-button-close {
+  background: rgba(255,255,255,0.06) !important;
 }
 
 @layer utilities {
   .text-balance { text-wrap: balance; }
-  .glow-green {
-    box-shadow: 0 0 20px rgba(34, 197, 94, 0.15);
+
+  /* Glass morphism — macOS vibrancy */
+  .glass {
+    background: rgba(255,255,255,0.03);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(255,255,255,0.07);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05);
   }
-  .glow-green-sm {
-    box-shadow: 0 0 10px rgba(34, 197, 94, 0.1);
+  .glass-heavy {
+    background: rgba(16,16,20,0.85);
+    backdrop-filter: blur(32px) saturate(200%);
+    -webkit-backdrop-filter: blur(32px) saturate(200%);
+    border: 1px solid rgba(255,255,255,0.09);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06);
   }
+
+  /* Glow effects */
+  .glow-green    { box-shadow: 0 0 24px rgba(34,197,94,0.2); }
+  .glow-green-sm { box-shadow: 0 0 12px rgba(34,197,94,0.12); }
+  .glow-green-lg { box-shadow: 0 0 48px rgba(34,197,94,0.2), 0 0 96px rgba(34,197,94,0.08); }
+
+  /* Shimmer gradient for loading states */
+  .shimmer-bg {
+    background: linear-gradient(
+      90deg,
+      rgba(255,255,255,0) 0%,
+      rgba(255,255,255,0.04) 50%,
+      rgba(255,255,255,0) 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 2.2s infinite;
+  }
+
+  /* Cipher text */
   .cipher-text {
     font-family: 'JetBrains Mono', monospace;
-    color: #22c55e;
-    font-size: 0.75rem;
-    letter-spacing: 0.05em;
-    opacity: 0.8;
+    color: #4ade80;
+    font-size: 0.7rem;
+    letter-spacing: 0.04em;
+    opacity: 0.9;
+  }
+
+  /* Noise texture overlay */
+  .noise::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+    opacity: 0.4;
+    pointer-events: none;
+    border-radius: inherit;
+  }
+
+  /* Gradient text */
+  .gradient-text {
+    background: linear-gradient(135deg, #4ade80 0%, #22c55e 50%, #86efac 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
   }
 }
