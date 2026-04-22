@@ -1,7 +1,9 @@
 [package]
 name = "bov"
 version = "0.1.0"
-description = "Blind Omnichain Vault — Solana program"
+description = "Blind Omnichain Vault — Solana program (Ika dWallets + Encrypt FHE)"
+authors = ["thesithunyein"]
+repository = "https://github.com/thesithunyein/blind-omnichain-vault"
 edition = "2021"
 license = "MIT"
 
