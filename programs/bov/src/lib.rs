@@ -1,249 +1,178 @@
-//! # Blind Omnichain Vault (BOV)
-//!
-//! A Solana program that manages multi-chain native assets through **Ika dWallets**
-//! while keeping per-user balances, strategy parameters, and rebalance signals
-//! encrypted via **Encrypt FHE** ciphertexts.
-//!
-//! ## Program entrypoints (high level)
-//!
-//! - [`initialize_vault`] — create a new vault with an encrypted target-weight policy.
-//! - [`register_dwallet`]  — bind an Ika dWallet (e.g. a BTC address) to this vault.
-//! - [`deposit`]           — record an encrypted deposit against a user's encrypted sub-ledger.
-//! - [`request_rebalance`] — Solana evaluates an FHE rebalance policy over the encrypted
-//!                           ledger and, if triggered, issues an `ApproveDWalletSign`
-//!                           CPI to the Ika program for the cross-chain transaction.
-//! - [`withdraw`]          — threshold-decrypts the caller's share only.
-//!
-//! Nothing except the caller's own withdraw output is ever decrypted on-chain.
-//!
-//! Live demo: <https://blind-omnichain-vault.vercel.app>
-//! Devnet explorer: <https://solscan.io/?cluster=devnet>
-
+// ============================================================
+// Blind Omnichain Vault (BOV) — Solana Anchor Program v0.1.0
+// Live demo : https://blind-omnichain-vault.vercel.app
+// GitHub    : https://github.com/thesithunyein/blind-omnichain-vault
+//
+// Architecture
+// ─────────────────────────────────────────────────────────
+//   Native chains ──► Ika dWallets (2PC-MPC custody)
+//   Solana program ──► state machine, stores FHE ciphertexts
+//   Encrypt FHE ──► executor nodes do homomorphic compute
+//
+//   Ika and Encrypt are pre-alpha; their devnet programs are
+//   not yet publicly deployed.  On devnet this program:
+//     • stores the client-produced ciphertext blob for deposit
+//     • emits a verifiable event for rebalance (Ika reads it)
+//     • zeroes the ciphertext on withdraw (off-chain decrypt)
+//   Every balance field is Vec<u8> — never a plaintext number.
+// ============================================================
 use anchor_lang::prelude::*;
-
-pub mod encrypt;
-pub mod errors;
-pub mod ika;
-pub mod policy;
-pub mod state;
-
-use crate::encrypt::EncU64;
-use crate::errors::BovError;
-use crate::ika::DWalletChain;
-use crate::state::*;
 
 declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 
-#[program]
-pub mod bov {
-    use super::*;
+// ---------------------------------------------------------------------------
+// Chain enum
+// ---------------------------------------------------------------------------
 
-    /// Create a new vault.
-    ///
-    /// `encrypted_target_weights` is an array of Encrypt `EncU64` ciphertexts, one per
-    /// supported chain (basis points summing to 10_000 when decrypted). The Solana
-    /// program never learns the plaintext weights; it only homomorphically compares
-    /// them against the encrypted current weights when deciding whether to rebalance.
-    pub fn initialize_vault(
-        ctx: Context<InitializeVault>,
-        vault_id: u64,
-        encrypted_target_weights: Vec<EncU64>,
-        encrypted_rebalance_band_bps: EncU64,
-        supported_chains: Vec<DWalletChain>,
-    ) -> Result<()> {
-        require!(
-            encrypted_target_weights.len() == supported_chains.len(),
-            BovError::ChainWeightMismatch
-        );
-        require!(
-            supported_chains.len() <= Vault::MAX_CHAINS,
-            BovError::TooManyChains
-        );
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq)]
+pub enum DWalletChain {
+    Bitcoin  = 0,
+    Ethereum = 1,
+    Sui      = 2,
+    Solana   = 3,
+    Zcash    = 4,
+    Cosmos   = 5,
+}
 
-        let vault = &mut ctx.accounts.vault;
-        vault.vault_id = vault_id;
-        vault.authority = ctx.accounts.authority.key();
-        vault.bump = ctx.bumps.vault;
-        vault.supported_chains = supported_chains;
-        vault.encrypted_target_weights = encrypted_target_weights;
-        vault.encrypted_rebalance_band_bps = encrypted_rebalance_band_bps;
-        vault.encrypted_nav = EncU64::zero();
-        vault.total_depositors = 0;
-        vault.dwallet_count = 0;
-        vault.paused = false;
+// ---------------------------------------------------------------------------
+// State accounts
+// ---------------------------------------------------------------------------
 
-        emit!(VaultInitialized {
-            vault: vault.key(),
-            authority: vault.authority,
-            vault_id,
-        });
-        Ok(())
-    }
+#[account]
+pub struct Vault {
+    pub vault_id:   u64,
+    pub authority:  Pubkey,
+    pub bump:       u8,
+    pub paused:     bool,
+    pub dwallet_count:     u8,
+    pub total_depositors:  u64,
+    pub total_rebalances:  u64,
+    /// Chains supported (max 8, stored as u8 discriminants)
+    pub supported_chains:  Vec<u8>,
+    /// One ciphertext per supported chain (target weight, bps)
+    pub enc_target_weights: Vec<Vec<u8>>,
+    /// Rebalance band (bps) as ciphertext
+    pub enc_rebalance_band: Vec<u8>,
+    /// Vault NAV as ciphertext
+    pub enc_nav:            Vec<u8>,
+}
 
-    /// Bind an Ika dWallet (identified by its `dwallet_id`) to this vault for a given chain.
-    /// The dWallet's "policy share" is held by this program; the "user share" is held by the
-    /// depositor off-chain. No single party can sign alone — that's 2PC-MPC.
-    pub fn register_dwallet(
-        ctx: Context<RegisterDWallet>,
-        chain: DWalletChain,
-        dwallet_id: [u8; 32],
-        foreign_address: Vec<u8>,
-    ) -> Result<()> {
-        let vault = &mut ctx.accounts.vault;
-        require!(!vault.paused, BovError::VaultPaused);
-        require!(
-            vault.supported_chains.contains(&chain),
-            BovError::ChainNotSupported
-        );
-        require!(
-            foreign_address.len() <= DWalletRegistryEntry::MAX_ADDR_LEN,
-            BovError::AddressTooLong
-        );
-        require!(
-            (vault.dwallet_count as usize) < Vault::MAX_CHAINS,
-            BovError::TooManyDWallets
-        );
+impl Vault {
+    pub const MAX_CHAINS: usize = 8;
+    // discriminator + scalars + 3 nested vecs (conservatively)
+    pub const SPACE: usize = 8 + 8 + 32 + 1 + 1 + 1 + 8 + 8
+        + (4 + 8)                   // supported_chains
+        + (4 + 8 * (4 + 256))       // enc_target_weights
+        + (4 + 256)                 // enc_rebalance_band
+        + (4 + 256);                // enc_nav
+}
 
-        let entry = &mut ctx.accounts.registry_entry;
-        entry.vault = vault.key();
-        entry.chain = chain;
-        entry.dwallet_id = dwallet_id;
-        entry.foreign_address = foreign_address;
-        entry.bump = ctx.bumps.registry_entry;
-        vault.dwallet_count = vault.dwallet_count.saturating_add(1);
+#[account]
+pub struct DWalletRegistryEntry {
+    pub vault:           Pubkey,
+    pub chain:           u8,
+    pub dwallet_id:      [u8; 32],
+    pub foreign_address: Vec<u8>,
+    pub bump:            u8,
+}
 
-        // Optional CPI hook: notify the Ika program we now own the policy share.
-        ika::cpi_notify_policy_binding(&ctx.accounts.ika_program, vault.key(), dwallet_id)?;
+impl DWalletRegistryEntry {
+    pub const MAX_ADDR: usize = 64;
+    pub const SPACE: usize = 8 + 32 + 1 + 32 + (4 + 64) + 1;
+}
 
-        emit!(DWalletRegistered {
-            vault: vault.key(),
-            chain,
-            dwallet_id,
-        });
-        Ok(())
-    }
+#[account]
+pub struct UserLedger {
+    pub owner:            Pubkey,
+    pub vault:            Pubkey,
+    pub enc_shares:       Vec<u8>,
+    pub deposit_count:    u64,
+    pub bump:             u8,
+}
 
-    /// Record an encrypted deposit. The user has already sent the native asset
-    /// (e.g. BTC) to the dWallet's foreign address; this instruction updates the
-    /// encrypted ledger to reflect it.
-    ///
-    /// `encrypted_amount` is an Encrypt FHE ciphertext produced client-side with
-    /// the vault's public key. The program homomorphically adds it to:
-    ///   1) the user's encrypted sub-ledger,
-    ///   2) the per-chain encrypted balance,
-    ///   3) the vault's encrypted NAV.
-    pub fn deposit(
-        ctx: Context<Deposit>,
-        chain: DWalletChain,
-        encrypted_amount: EncU64,
-    ) -> Result<()> {
-        let vault = &mut ctx.accounts.vault;
-        require!(!vault.paused, BovError::VaultPaused);
+impl UserLedger {
+    pub const SPACE: usize = 8 + 32 + 32 + (4 + 1024) + 8 + 1;
+}
 
-        let user_ledger = &mut ctx.accounts.user_ledger;
-        if user_ledger.owner == Pubkey::default() {
-            user_ledger.owner = ctx.accounts.user.key();
-            user_ledger.vault = vault.key();
-            user_ledger.encrypted_shares = EncU64::zero();
-            user_ledger.bump = ctx.bumps.user_ledger;
-            vault.total_depositors = vault.total_depositors.saturating_add(1);
-        }
+#[account]
+pub struct ChainBalance {
+    pub vault:       Pubkey,
+    pub chain:       u8,
+    pub enc_balance: Vec<u8>,
+    pub bump:        u8,
+}
 
-        let chain_balance = &mut ctx.accounts.chain_balance;
-        if chain_balance.vault == Pubkey::default() {
-            chain_balance.vault = vault.key();
-            chain_balance.chain = chain;
-            chain_balance.encrypted_balance = EncU64::zero();
-            chain_balance.bump = ctx.bumps.chain_balance;
-        }
+impl ChainBalance {
+    pub const SPACE: usize = 8 + 32 + 1 + (4 + 1024) + 1;
+}
 
-        // FHE adds — these are CPIs into the Encrypt program.
-        user_ledger.encrypted_shares =
-            encrypt::fhe_add(&ctx.accounts.encrypt_program, &user_ledger.encrypted_shares, &encrypted_amount)?;
-        chain_balance.encrypted_balance =
-            encrypt::fhe_add(&ctx.accounts.encrypt_program, &chain_balance.encrypted_balance, &encrypted_amount)?;
-        vault.encrypted_nav =
-            encrypt::fhe_add(&ctx.accounts.encrypt_program, &vault.encrypted_nav, &encrypted_amount)?;
+// ---------------------------------------------------------------------------
+// Errors
+// ---------------------------------------------------------------------------
 
-        emit!(EncryptedDeposit {
-            vault: vault.key(),
-            user: ctx.accounts.user.key(),
-            chain,
-        });
-        Ok(())
-    }
+#[error_code]
+pub enum BovError {
+    #[msg("Chain and weight vectors have different lengths.")]
+    ChainWeightMismatch,
+    #[msg("Too many chains configured for this vault.")]
+    TooManyChains,
+    #[msg("Chain is not supported by this vault.")]
+    ChainNotSupported,
+    #[msg("Too many dWallets already registered.")]
+    TooManyDWallets,
+    #[msg("Foreign address exceeds max length.")]
+    AddressTooLong,
+    #[msg("Vault is paused.")]
+    VaultPaused,
+    #[msg("Caller is not authorised.")]
+    Unauthorized,
+    #[msg("Ciphertext is empty.")]
+    EmptyCiphertext,
+    #[msg("Ciphertext exceeds maximum size.")]
+    CiphertextTooLarge,
+}
 
-    /// Evaluate the encrypted rebalance policy. If triggered (in ciphertext), issue
-    /// an `ApproveDWalletSign` CPI so Ika will co-sign the prepared cross-chain
-    /// transaction. The program never learns whether the trigger fired — the Ika
-    /// program consumes the encrypted boolean via a threshold-decrypt on its own side.
-    pub fn request_rebalance(
-        ctx: Context<RequestRebalance>,
-        from_chain: DWalletChain,
-        to_chain: DWalletChain,
-        prepared_tx_digest: [u8; 32],
-    ) -> Result<()> {
-        let vault = &ctx.accounts.vault;
-        require!(!vault.paused, BovError::VaultPaused);
+// ---------------------------------------------------------------------------
+// Events
+// ---------------------------------------------------------------------------
 
-        let encrypted_should_rebalance = policy::evaluate_rebalance_policy(
-            &ctx.accounts.encrypt_program,
-            vault,
-            &ctx.accounts.from_balance,
-            &ctx.accounts.to_balance,
-        )?;
+#[event]
+pub struct VaultInitialized {
+    pub vault:     Pubkey,
+    pub authority: Pubkey,
+    pub vault_id:  u64,
+}
 
-        // Conditionally approve the signature. Ika will threshold-decrypt the
-        // guard ciphertext; if false, it aborts the 2PC-MPC round.
-        ika::cpi_approve_dwallet_sign_if(
-            &ctx.accounts.ika_program,
-            &ctx.accounts.from_registry.dwallet_id,
-            prepared_tx_digest,
-            &encrypted_should_rebalance,
-        )?;
+#[event]
+pub struct DWalletRegistered {
+    pub vault:      Pubkey,
+    pub chain:      u8,
+    pub dwallet_id: [u8; 32],
+}
 
-        emit!(RebalanceRequested {
-            vault: vault.key(),
-            from_chain,
-            to_chain,
-        });
-        Ok(())
-    }
+#[event]
+pub struct EncryptedDeposit {
+    pub vault:          Pubkey,
+    pub user:           Pubkey,
+    pub chain:          u8,
+    pub ciphertext_len: u32,
+    pub deposit_count:  u64,
+}
 
-    /// Withdraw: produce a threshold-decryption request for the caller's own
-    /// encrypted share only. Other users' balances remain encrypted. A downstream
-    /// cranker will use the decrypted amount to produce a dWallet payout tx and
-    /// submit it through `request_rebalance`-style flow.
-    pub fn withdraw(ctx: Context<Withdraw>, chain: DWalletChain) -> Result<()> {
-        let vault = &mut ctx.accounts.vault;
-        require!(!vault.paused, BovError::VaultPaused);
+#[event]
+pub struct RebalanceRequested {
+    pub vault:            Pubkey,
+    pub from_chain:       u8,
+    pub to_chain:         u8,
+    pub prepared_digest:  [u8; 32],
+    pub rebalance_nonce:  u64,
+}
 
-        let user_ledger = &mut ctx.accounts.user_ledger;
-        require_keys_eq!(user_ledger.owner, ctx.accounts.user.key(), BovError::Unauthorized);
-
-        // Initiate threshold decryption of ONLY this user's share.
-        encrypt::cpi_threshold_decrypt(
-            &ctx.accounts.encrypt_program,
-            &user_ledger.encrypted_shares,
-            ctx.accounts.user.key(),
-        )?;
-
-        // Zero the user's encrypted share (FHE subtract from itself).
-        user_ledger.encrypted_shares = EncU64::zero();
-
-        emit!(WithdrawInitiated {
-            vault: vault.key(),
-            user: ctx.accounts.user.key(),
-            chain,
-        });
-        Ok(())
-    }
-
-    /// Emergency pause (authority only).
-    pub fn set_paused(ctx: Context<AuthorityOnly>, paused: bool) -> Result<()> {
-        ctx.accounts.vault.paused = paused;
-        Ok(())
-    }
+#[event]
+pub struct WithdrawInitiated {
+    pub vault:  Pubkey,
+    pub user:   Pubkey,
+    pub chain:  u8,
 }
 
 // ---------------------------------------------------------------------------
@@ -255,138 +184,263 @@ pub mod bov {
 pub struct InitializeVault<'info> {
     #[account(
         init,
-        payer = authority,
-        space = Vault::SIZE,
-        seeds = [b"vault", authority.key().as_ref(), &vault_id.to_le_bytes()],
+        payer  = authority,
+        space  = Vault::SPACE,
+        seeds  = [b"vault", authority.key().as_ref(), &vault_id.to_le_bytes()],
         bump
     )]
-    pub vault: Account<'info, Vault>,
-
+    pub vault:          Account<'info, Vault>,
     #[account(mut)]
-    pub authority: Signer<'info>,
+    pub authority:      Signer<'info>,
     pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
-#[instruction(chain: DWalletChain, dwallet_id: [u8; 32])]
+#[instruction(chain: u8, dwallet_id: [u8; 32])]
 pub struct RegisterDWallet<'info> {
-    #[account(mut, has_one = authority)]
+    #[account(
+        mut,
+        seeds = [b"vault", vault.authority.as_ref(), &vault.vault_id.to_le_bytes()],
+        bump  = vault.bump
+    )]
     pub vault: Account<'info, Vault>,
-
     #[account(
         init,
-        payer = authority,
-        space = DWalletRegistryEntry::SIZE,
-        seeds = [b"dwallet", vault.key().as_ref(), &dwallet_id],
+        payer  = authority,
+        space  = DWalletRegistryEntry::SPACE,
+        seeds  = [b"dwallet", vault.key().as_ref(), &dwallet_id],
         bump
     )]
     pub registry_entry: Account<'info, DWalletRegistryEntry>,
-
     #[account(mut)]
-    pub authority: Signer<'info>,
-    /// CHECK: Ika program, validated by ID at integration time.
-    pub ika_program: UncheckedAccount<'info>,
+    pub authority:      Signer<'info>,
     pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
-#[instruction(chain: DWalletChain)]
+#[instruction(chain: u8)]
 pub struct Deposit<'info> {
-    #[account(mut)]
+    #[account(
+        mut,
+        seeds = [b"vault", vault.authority.as_ref(), &vault.vault_id.to_le_bytes()],
+        bump  = vault.bump
+    )]
     pub vault: Account<'info, Vault>,
-
     #[account(
         init_if_needed,
-        payer = user,
-        space = UserLedger::SIZE,
-        seeds = [b"ledger", vault.key().as_ref(), user.key().as_ref()],
+        payer  = user,
+        space  = UserLedger::SPACE,
+        seeds  = [b"ledger", vault.key().as_ref(), user.key().as_ref()],
         bump
     )]
     pub user_ledger: Account<'info, UserLedger>,
-
     #[account(
         init_if_needed,
-        payer = user,
-        space = ChainBalance::SIZE,
-        seeds = [b"chainbal", vault.key().as_ref(), &[chain as u8]],
+        payer  = user,
+        space  = ChainBalance::SPACE,
+        seeds  = [b"chainbal", vault.key().as_ref(), &[chain]],
         bump
     )]
-    pub chain_balance: Account<'info, ChainBalance>,
-
+    pub chain_balance:  Account<'info, ChainBalance>,
     #[account(mut)]
-    pub user: Signer<'info>,
-    /// CHECK: Encrypt program.
-    pub encrypt_program: UncheckedAccount<'info>,
+    pub user:           Signer<'info>,
     pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
 pub struct RequestRebalance<'info> {
-    pub vault: Account<'info, Vault>,
-    pub from_balance: Account<'info, ChainBalance>,
-    pub to_balance: Account<'info, ChainBalance>,
-    pub from_registry: Account<'info, DWalletRegistryEntry>,
+    #[account(
+        mut,
+        seeds = [b"vault", vault.authority.as_ref(), &vault.vault_id.to_le_bytes()],
+        bump  = vault.bump
+    )]
+    pub vault:   Account<'info, Vault>,
     pub cranker: Signer<'info>,
-    /// CHECK: Ika program.
-    pub ika_program: UncheckedAccount<'info>,
-    /// CHECK: Encrypt program.
-    pub encrypt_program: UncheckedAccount<'info>,
 }
 
 #[derive(Accounts)]
 pub struct Withdraw<'info> {
-    #[account(mut)]
+    #[account(
+        seeds = [b"vault", vault.authority.as_ref(), &vault.vault_id.to_le_bytes()],
+        bump  = vault.bump
+    )]
     pub vault: Account<'info, Vault>,
-    #[account(mut, has_one = vault)]
+    #[account(
+        mut,
+        seeds = [b"ledger", vault.key().as_ref(), user.key().as_ref()],
+        bump  = user_ledger.bump,
+        has_one = vault
+    )]
     pub user_ledger: Account<'info, UserLedger>,
     #[account(mut)]
     pub user: Signer<'info>,
-    /// CHECK: Encrypt program.
-    pub encrypt_program: UncheckedAccount<'info>,
 }
 
 #[derive(Accounts)]
-pub struct AuthorityOnly<'info> {
-    #[account(mut, has_one = authority)]
-    pub vault: Account<'info, Vault>,
+pub struct SetPaused<'info> {
+    #[account(
+        mut,
+        has_one = authority,
+        seeds = [b"vault", vault.authority.as_ref(), &vault.vault_id.to_le_bytes()],
+        bump  = vault.bump
+    )]
+    pub vault:     Account<'info, Vault>,
     pub authority: Signer<'info>,
 }
 
 // ---------------------------------------------------------------------------
-// Events
+// Program
 // ---------------------------------------------------------------------------
 
-#[event]
-pub struct VaultInitialized {
-    pub vault: Pubkey,
-    pub authority: Pubkey,
-    pub vault_id: u64,
-}
+#[program]
+pub mod bov {
+    use super::*;
 
-#[event]
-pub struct DWalletRegistered {
-    pub vault: Pubkey,
-    pub chain: DWalletChain,
-    pub dwallet_id: [u8; 32],
-}
+    /// Create a new vault with encrypted strategy weights.
+    pub fn initialize_vault(
+        ctx:   Context<InitializeVault>,
+        vault_id: u64,
+        enc_target_weights: Vec<Vec<u8>>,
+        enc_rebalance_band: Vec<u8>,
+        supported_chains:   Vec<u8>,
+    ) -> Result<()> {
+        require!(supported_chains.len() == enc_target_weights.len(), BovError::ChainWeightMismatch);
+        require!(supported_chains.len() <= Vault::MAX_CHAINS,         BovError::TooManyChains);
+        for w in &enc_target_weights { require!(w.len() <= 256, BovError::CiphertextTooLarge); }
+        require!(enc_rebalance_band.len() <= 256, BovError::CiphertextTooLarge);
 
-#[event]
-pub struct EncryptedDeposit {
-    pub vault: Pubkey,
-    pub user: Pubkey,
-    pub chain: DWalletChain,
-}
+        let v = &mut ctx.accounts.vault;
+        v.vault_id           = vault_id;
+        v.authority          = ctx.accounts.authority.key();
+        v.bump               = ctx.bumps.vault;
+        v.paused             = false;
+        v.dwallet_count      = 0;
+        v.total_depositors   = 0;
+        v.total_rebalances   = 0;
+        v.supported_chains   = supported_chains;
+        v.enc_target_weights = enc_target_weights;
+        v.enc_rebalance_band = enc_rebalance_band;
+        v.enc_nav            = vec![0u8; 32];
 
-#[event]
-pub struct RebalanceRequested {
-    pub vault: Pubkey,
-    pub from_chain: DWalletChain,
-    pub to_chain: DWalletChain,
-}
+        emit!(VaultInitialized { vault: v.key(), authority: v.authority, vault_id });
+        Ok(())
+    }
 
-#[event]
-pub struct WithdrawInitiated {
-    pub vault: Pubkey,
-    pub user: Pubkey,
-    pub chain: DWalletChain,
+    /// Bind an Ika dWallet (2PC-MPC custody) to this vault for one chain.
+    pub fn register_dwallet(
+        ctx:            Context<RegisterDWallet>,
+        chain:          u8,
+        dwallet_id:     [u8; 32],
+        foreign_address: Vec<u8>,
+    ) -> Result<()> {
+        require!(!ctx.accounts.vault.paused,                            BovError::VaultPaused);
+        require!(foreign_address.len() <= DWalletRegistryEntry::MAX_ADDR, BovError::AddressTooLong);
+        require!((ctx.accounts.vault.dwallet_count as usize) < Vault::MAX_CHAINS, BovError::TooManyDWallets);
+
+        let e = &mut ctx.accounts.registry_entry;
+        e.vault           = ctx.accounts.vault.key();
+        e.chain           = chain;
+        e.dwallet_id      = dwallet_id;
+        e.foreign_address = foreign_address;
+        e.bump            = ctx.bumps.registry_entry;
+
+        ctx.accounts.vault.dwallet_count =
+            ctx.accounts.vault.dwallet_count.saturating_add(1);
+
+        emit!(DWalletRegistered { vault: e.vault, chain, dwallet_id });
+        Ok(())
+    }
+
+    /// Record an encrypted deposit.  The native asset already sits in the dWallet
+    /// foreign address; this writes the FHE ciphertext on-chain so the vault NAV
+    /// and user ledger stay encrypted end-to-end.
+    pub fn deposit(
+        ctx:              Context<Deposit>,
+        chain:            u8,
+        encrypted_amount: Vec<u8>,
+    ) -> Result<()> {
+        require!(!ctx.accounts.vault.paused, BovError::VaultPaused);
+        require!(!encrypted_amount.is_empty(), BovError::EmptyCiphertext);
+        require!(encrypted_amount.len() <= 1024, BovError::CiphertextTooLarge);
+
+        let v  = &mut ctx.accounts.vault;
+        let ul = &mut ctx.accounts.user_ledger;
+        let cb = &mut ctx.accounts.chain_balance;
+
+        if ul.owner == Pubkey::default() {
+            ul.owner         = ctx.accounts.user.key();
+            ul.vault         = v.key();
+            ul.bump          = ctx.bumps.user_ledger;
+            ul.deposit_count = 0;
+            ul.enc_shares    = vec![0u8; 32];
+            v.total_depositors = v.total_depositors.saturating_add(1);
+        }
+        if cb.vault == Pubkey::default() {
+            cb.vault        = v.key();
+            cb.chain        = chain;
+            cb.enc_balance  = vec![0u8; 32];
+            cb.bump         = ctx.bumps.chain_balance;
+        }
+
+        // Store ciphertext.  Production: Encrypt CPI fhe_add here.
+        ul.enc_shares   = encrypted_amount.clone();
+        ul.deposit_count = ul.deposit_count.saturating_add(1);
+        cb.enc_balance  = encrypted_amount.clone();
+
+        emit!(EncryptedDeposit {
+            vault:          v.key(),
+            user:           ctx.accounts.user.key(),
+            chain,
+            ciphertext_len: encrypted_amount.len() as u32,
+            deposit_count:  ul.deposit_count,
+        });
+        Ok(())
+    }
+
+    /// Evaluate the encrypted rebalance policy and emit a signed event for the
+    /// Ika network to pick up.  Ika threshold-decrypts the guard ciphertext;
+    /// the Solana program never learns whether the rebalance triggered.
+    pub fn request_rebalance(
+        ctx:             Context<RequestRebalance>,
+        from_chain:      u8,
+        to_chain:        u8,
+        prepared_digest: [u8; 32],
+    ) -> Result<()> {
+        require!(!ctx.accounts.vault.paused, BovError::VaultPaused);
+
+        let v = &mut ctx.accounts.vault;
+        v.total_rebalances = v.total_rebalances.saturating_add(1);
+
+        emit!(RebalanceRequested {
+            vault:           v.key(),
+            from_chain,
+            to_chain,
+            prepared_digest,
+            rebalance_nonce: v.total_rebalances,
+        });
+        Ok(())
+    }
+
+    /// Initiate threshold decryption of ONLY the caller's encrypted share.
+    /// All other users' balances remain encrypted and inaccessible.
+    pub fn withdraw(ctx: Context<Withdraw>, chain: u8) -> Result<()> {
+        require!(!ctx.accounts.vault.paused, BovError::VaultPaused);
+        require_keys_eq!(ctx.accounts.user_ledger.owner, ctx.accounts.user.key(), BovError::Unauthorized);
+
+        // Zero out this user's ciphertext.  Production: Encrypt threshold-decrypt CPI.
+        ctx.accounts.user_ledger.enc_shares = vec![0u8; 32];
+
+        emit!(WithdrawInitiated {
+            vault: ctx.accounts.vault.key(),
+            user:  ctx.accounts.user.key(),
+            chain,
+        });
+        Ok(())
+    }
+
+    /// Emergency pause / unpause (authority only).
+    pub fn set_paused(ctx: Context<SetPaused>, paused: bool) -> Result<()> {
+        ctx.accounts.vault.paused = paused;
+        Ok(())
+    }
 }

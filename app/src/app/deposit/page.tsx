@@ -1,11 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowRight, Copy, Check, Info, Lock, Zap, ChevronDown } from "lucide-react";
+import { ArrowRight, Copy, Check, Info, Lock, Zap, ChevronDown, ExternalLink } from "lucide-react";
 import { EncryptedBadge } from "@/components/EncryptedBadge";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useWallet, useAnchorWallet } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
+import { AnchorProvider } from "@coral-xyz/anchor";
 import { cn } from "@/lib/utils";
+import {
+  getBovProgram, getVaultPda, getUserLedgerPda, getChainBalancePda,
+  stubEncrypt, solscanTxUrl, shortSig, VAULT_AUTHORITY, VAULT_ID,
+  CONNECTION, CHAIN, type ChainName,
+} from "@/lib/bov-client";
 
 const CHAINS = [
   { id: 0, name: "Bitcoin",  symbol: "BTC", color: "#f7931a", address: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh" },
@@ -17,11 +23,14 @@ const CHAINS = [
 type Step = "select-chain" | "show-address" | "encrypting" | "confirming" | "done";
 
 export default function DepositPage() {
-  const { connected } = useWallet();
-  const [step, setStep] = useState<Step>("select-chain");
+  const { connected }  = useWallet();
+  const anchorWallet   = useAnchorWallet();
+  const [step, setStep]                 = useState<Step>("select-chain");
   const [selectedChain, setSelectedChain] = useState(CHAINS[0]);
-  const [copied, setCopied] = useState(false);
-  const [amount, setAmount] = useState("");
+  const [copied, setCopied]             = useState(false);
+  const [amount, setAmount]             = useState("");
+  const [txSig, setTxSig]               = useState<string | null>(null);
+  const [txErr, setTxErr]               = useState<string | null>(null);
 
   function copyAddress() {
     navigator.clipboard.writeText(selectedChain.address);
@@ -30,12 +39,38 @@ export default function DepositPage() {
   }
 
   async function handleDeposit() {
-    if (!amount) return;
-    setStep("encrypting");
-    await new Promise(r => setTimeout(r, 1400));
-    setStep("confirming");
-    await new Promise(r => setTimeout(r, 1800));
-    setStep("done");
+    if (!amount || !anchorWallet) return;
+    setTxErr(null);
+    try {
+      setStep("encrypting");
+      // Client-side stub encryption: XOR-masks the amount.
+      // Production: Encrypt REFHE client SDK encrypts with vault public key.
+      const encryptedAmount = Array.from(stubEncrypt(Math.round(parseFloat(amount) * 1e6)));
+
+      setStep("confirming");
+      const provider = new AnchorProvider(CONNECTION, anchorWallet, { commitment: "confirmed" });
+      const program  = getBovProgram(provider);
+      const [vault]  = getVaultPda(VAULT_AUTHORITY, VAULT_ID);
+      const [userLedger] = getUserLedgerPda(vault, anchorWallet.publicKey);
+      const [chainBalance] = getChainBalancePda(vault, selectedChain.id);
+
+      const sig = await (program.methods as any)
+        .deposit(selectedChain.id, encryptedAmount)
+        .accounts({
+          vault,
+          userLedger,
+          chainBalance,
+          user:          anchorWallet.publicKey,
+          systemProgram: "11111111111111111111111111111111",
+        })
+        .rpc();
+
+      setTxSig(sig);
+      setStep("done");
+    } catch (err: unknown) {
+      setTxErr(err instanceof Error ? err.message : String(err));
+      setStep("show-address");
+    }
   }
 
   return (
@@ -65,9 +100,21 @@ export default function DepositPage() {
             <Check className="h-8 w-8 text-brand-400" />
           </div>
           <div>
-            <p className="text-xl font-bold text-white mb-2">Deposit recorded!</p>
-            <p className="text-sm text-zinc-400">Your encrypted balance has been updated on-chain.</p>
+            <p className="text-xl font-bold text-white mb-2">Deposit confirmed on-chain!</p>
+            <p className="text-sm text-zinc-400">Your encrypted balance has been written to the Solana devnet.</p>
           </div>
+          {txSig && (
+            <a
+              href={solscanTxUrl(txSig)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-xl border border-brand-700/60 bg-brand-900/30 px-4 py-3 text-sm font-mono text-brand-300 hover:text-brand-200 transition-colors"
+            >
+              <ExternalLink className="h-4 w-4 shrink-0" />
+              <span>{shortSig(txSig)}</span>
+              <span className="text-xs text-zinc-500 font-sans">→ View on Solscan Devnet</span>
+            </a>
+          )}
           <div className="w-full rounded-xl border border-surface-border bg-surface-card p-4 text-left">
             <p className="text-xs text-zinc-500 mb-2 uppercase tracking-wider">On-chain encrypted balance</p>
             <EncryptedBadge size="lg" label="balance" />
@@ -76,7 +123,7 @@ export default function DepositPage() {
             </p>
           </div>
           <button
-            onClick={() => { setStep("select-chain"); setAmount(""); }}
+            onClick={() => { setStep("select-chain"); setAmount(""); setTxSig(null); }}
             className="text-sm text-brand-400 hover:text-brand-300 transition-colors"
           >
             Make another deposit →

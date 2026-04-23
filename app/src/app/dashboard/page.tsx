@@ -1,12 +1,17 @@
 "use client";
 
-import { Users, Wallet, RefreshCw, Clock, CheckCircle, AlertTriangle, ExternalLink } from "lucide-react";
+import { useEffect, useState, useCallback } from "react";
+import { Users, Wallet, RefreshCw, Clock, CheckCircle, AlertTriangle, ExternalLink, LogOut } from "lucide-react";
 import { EncryptedBadge } from "@/components/EncryptedBadge";
 import { StatCard } from "@/components/StatCard";
-import { SOLSCAN_PROGRAM_URL } from "@/lib/mock-data";
-import { MOCK_VAULT, MOCK_USER, MOCK_REBALANCE_LOG, solscanTxUrl, shortSig } from "@/lib/mock-data";
-import { timeAgo, shortAddress } from "@/lib/utils";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { shortAddress } from "@/lib/utils";
+import { useWallet, useAnchorWallet } from "@solana/wallet-adapter-react";
+import { AnchorProvider } from "@coral-xyz/anchor";
+import {
+  getBovProgram, getVaultPda, getUserLedgerPda,
+  solscanTxUrl, shortSig,
+  VAULT_AUTHORITY, VAULT_ID, CONNECTION, PROGRAM_ID,
+} from "@/lib/bov-client";
 
 const CHAIN_COLORS: Record<string, string> = {
   Bitcoin:  "#f7931a",
@@ -15,8 +20,90 @@ const CHAIN_COLORS: Record<string, string> = {
   Zcash:    "#f4b728",
 };
 
+const MOCK_CHAINS = [
+  { name: "Bitcoin",  symbol: "BTC", targetBps: 6000 },
+  { name: "Ethereum", symbol: "ETH", targetBps: 2500 },
+  { name: "Sui",      symbol: "SUI", targetBps: 1000 },
+  { name: "Zcash",    symbol: "ZEC", targetBps:  500 },
+];
+
+type UserPosition = {
+  depositCount: number;
+  encShares: number[];
+  hasPosition: boolean;
+};
+
 export default function DashboardPage() {
   const { connected, publicKey } = useWallet();
+  const anchorWallet = useAnchorWallet();
+  const [position, setPosition] = useState<UserPosition | null>(null);
+  const [loadingPos, setLoadingPos] = useState(false);
+  const [withdrawSig, setWithdrawSig] = useState<string | null>(null);
+  const [rebalanceSig, setRebalanceSig] = useState<string | null>(null);
+  const [actionErr, setActionErr] = useState<string | null>(null);
+
+  const fetchPosition = useCallback(async () => {
+    if (!publicKey) { setPosition(null); return; }
+    setLoadingPos(true);
+    try {
+      const [vault] = getVaultPda(VAULT_AUTHORITY, VAULT_ID);
+      const [ledgerPda] = getUserLedgerPda(vault, publicKey);
+      const info = await CONNECTION.getAccountInfo(ledgerPda);
+      if (!info) {
+        setPosition({ depositCount: 0, encShares: [], hasPosition: false });
+      } else {
+        const provider = new AnchorProvider(CONNECTION, anchorWallet!, { commitment: "confirmed" });
+        const program = getBovProgram(provider);
+        const ledger = await (program.account as any).userLedger.fetch(ledgerPda);
+        setPosition({
+          depositCount: Number(ledger.depositCount),
+          encShares: Array.from(ledger.encShares as number[]),
+          hasPosition: true,
+        });
+      }
+    } catch { setPosition(null); }
+    finally { setLoadingPos(false); }
+  }, [publicKey, anchorWallet]);
+
+  useEffect(() => { fetchPosition(); }, [fetchPosition]);
+
+  async function handleWithdraw() {
+    if (!anchorWallet) return;
+    setActionErr(null);
+    try {
+      const provider = new AnchorProvider(CONNECTION, anchorWallet, { commitment: "confirmed" });
+      const program  = getBovProgram(provider);
+      const [vault]  = getVaultPda(VAULT_AUTHORITY, VAULT_ID);
+      const [userLedger] = getUserLedgerPda(vault, anchorWallet.publicKey);
+      const sig = await (program.methods as any)
+        .withdraw(0)
+        .accounts({ vault, userLedger, user: anchorWallet.publicKey })
+        .rpc();
+      setWithdrawSig(sig);
+      await fetchPosition();
+    } catch (e: unknown) {
+      setActionErr(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  async function handleRebalance() {
+    if (!anchorWallet) return;
+    setActionErr(null);
+    try {
+      const provider = new AnchorProvider(CONNECTION, anchorWallet, { commitment: "confirmed" });
+      const program  = getBovProgram(provider);
+      const [vault]  = getVaultPda(VAULT_AUTHORITY, VAULT_ID);
+      const digest   = new Uint8Array(32);
+      crypto.getRandomValues(digest);
+      const sig = await (program.methods as any)
+        .requestRebalance(0, 1, Array.from(digest))
+        .accounts({ vault, cranker: anchorWallet.publicKey })
+        .rpc();
+      setRebalanceSig(sig);
+    } catch (e: unknown) {
+      setActionErr(e instanceof Error ? e.message : String(e));
+    }
+  }
 
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 py-10 animate-fade-in">
@@ -40,9 +127,9 @@ export default function DashboardPage() {
       {/* ── Top stats ─────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         <StatCard icon={Wallet}   label="Total NAV"       encrypted />
-        <StatCard icon={Users}    label="Depositors"      value={MOCK_VAULT.totalDepositors} delta="3" />
-        <StatCard icon={RefreshCw} label="Active dWallets" value={MOCK_VAULT.dwalletCount} />
-        <StatCard icon={Clock}    label="Last Rebalance"  value={timeAgo(MOCK_VAULT.lastRebalanceAt)} />
+        <StatCard icon={Users}    label="Depositors"      value={"–"} />
+        <StatCard icon={RefreshCw} label="Your Deposits"  value={position?.depositCount ?? (loadingPos ? "…" : "–")} />
+        <StatCard icon={Clock}    label="Position"        value={position?.hasPosition ? "Active" : "–"} />
       </div>
 
       <div className="grid lg:grid-cols-3 gap-4">
@@ -53,7 +140,7 @@ export default function DashboardPage() {
             <span className="text-xs text-zinc-600 hidden sm:block">Targets · display only</span>
           </div>
           <div className="p-6 space-y-5">
-            {MOCK_VAULT.chains.map((chain) => (
+            {MOCK_CHAINS.map((chain) => (
               <div key={chain.name}>
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2.5">
@@ -102,38 +189,62 @@ export default function DashboardPage() {
                   <p className="text-xs text-zinc-500 mb-1.5 uppercase tracking-wider">Encrypted Shares</p>
                   <EncryptedBadge size="lg" label="shares" />
                 </div>
-                <div>
-                  <p className="text-xs text-zinc-500 mb-1.5 uppercase tracking-wider">Encrypted P&amp;L</p>
-                  <EncryptedBadge size="lg" label="pnl" />
-                </div>
-                <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 text-xs text-zinc-500 leading-relaxed">
-                  Your balance is encrypted under the vault key. Only <em>you</em> can trigger threshold decryption at withdrawal.
-                </div>
-                <div className="pt-2">
-                  <p className="text-xs text-zinc-500 mb-2 uppercase tracking-wider">Deposits</p>
-                  {MOCK_USER.depositHistory.map((d, i) => (
-                    <div key={i} className="flex items-center justify-between py-2 border-b border-white/[0.04] last:border-0">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className="h-2 w-2 rounded-full"
-                          style={{ backgroundColor: CHAIN_COLORS[d.chain] ?? "#888" }}
-                        />
-                        <span className="text-xs text-zinc-300">{d.chain}</span>
-                      </div>
-                      <div className="text-right">
-                        <a
-                          href={solscanTxUrl(d.solanaTx)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-[10px] font-mono text-zinc-500 hover:text-brand-300 transition-colors"
-                        >
-                          {shortSig(d.solanaTx)}
-                          <ExternalLink className="h-2.5 w-2.5" />
-                        </a>
-                        <p className="text-[10px] text-zinc-600 mt-0.5">{timeAgo(d.at)}</p>
-                      </div>
-                    </div>
-                  ))}
+                {loadingPos && (
+                  <p className="text-xs text-zinc-600 animate-pulse">Fetching your PDA…</p>
+                )}
+                {!loadingPos && position && (
+                  <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 text-xs text-zinc-500 leading-relaxed">
+                    {position.hasPosition ? (
+                      <>
+                        <p className="text-brand-400 font-semibold mb-1">Position Active</p>
+                        <p>Deposits recorded: <span className="text-white">{position.depositCount}</span></p>
+                        <p className="mt-1 text-[11px] text-zinc-600">
+                          Only you can trigger threshold decryption at withdrawal.
+                        </p>
+                      </>
+                    ) : (
+                      <p>No position yet. Make a deposit to create your on-chain ledger.</p>
+                    )}
+                  </div>
+                )}
+                {actionErr && (
+                  <div className="rounded-lg border border-red-800/40 bg-red-900/20 px-3 py-2 text-xs text-red-400">
+                    {actionErr}
+                  </div>
+                )}
+                {(withdrawSig || rebalanceSig) && (
+                  <div className="space-y-1.5">
+                    {rebalanceSig && (
+                      <a href={solscanTxUrl(rebalanceSig)} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 text-[11px] font-mono text-brand-400 hover:text-brand-300">
+                        <ExternalLink className="h-3 w-3" />
+                        Rebalance: {shortSig(rebalanceSig)}
+                      </a>
+                    )}
+                    {withdrawSig && (
+                      <a href={solscanTxUrl(withdrawSig)} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 text-[11px] font-mono text-brand-400 hover:text-brand-300">
+                        <ExternalLink className="h-3 w-3" />
+                        Withdraw: {shortSig(withdrawSig)}
+                      </a>
+                    )}
+                  </div>
+                )}
+                <div className="flex gap-2 pt-1">
+                  <button
+                    onClick={handleRebalance}
+                    disabled={!position?.hasPosition}
+                    className="flex-1 rounded-xl border border-brand-700/60 bg-brand-900/30 py-2.5 text-xs font-semibold text-brand-300 hover:bg-brand-900/50 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-1.5"
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" /> Rebalance
+                  </button>
+                  <button
+                    onClick={handleWithdraw}
+                    disabled={!position?.hasPosition}
+                    className="flex-1 rounded-xl border border-red-700/40 bg-red-900/20 py-2.5 text-xs font-semibold text-red-400 hover:bg-red-900/30 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-1.5"
+                  >
+                    <LogOut className="h-3.5 w-3.5" /> Withdraw
+                  </button>
                 </div>
               </>
             ) : (
@@ -148,56 +259,83 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ── Rebalance log ─────────────────────────────────────────── */}
+      {/* ── On-chain activity log ──────────────────────────────────────── */}
       <div className="mt-4 glass rounded-2xl overflow-hidden">
         <div className="border-b border-white/[0.06] px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <RefreshCw className="h-4 w-4 text-brand-400" />
-            <span className="text-sm font-semibold text-white">Rebalance Log</span>
+            <span className="text-sm font-semibold text-white">On-chain Activity</span>
           </div>
-          <span className="text-xs text-zinc-600">Guards are consumed ciphertexts — never revealed</span>
+          <a
+            href={`https://solscan.io/account/${PROGRAM_ID.toBase58()}?cluster=devnet`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1 text-xs text-zinc-500 hover:text-brand-300 transition-colors"
+          >
+            Program on Solscan <ExternalLink className="h-3 w-3" />
+          </a>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-white/[0.05] text-zinc-600 uppercase tracking-wider">
-                <th className="px-6 py-3 text-left">Route</th>
-                <th className="px-6 py-3 text-left">Guard Ciphertext</th>
+                <th className="px-6 py-3 text-left">Action</th>
+                <th className="px-6 py-3 text-left">Guard / Data</th>
                 <th className="px-6 py-3 text-left">Solana Tx</th>
-                <th className="px-6 py-3 text-left">When</th>
                 <th className="px-6 py-3 text-left">Status</th>
               </tr>
             </thead>
             <tbody>
-              {MOCK_REBALANCE_LOG.map((r) => (
-                <tr key={r.id} className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors">
-                  <td className="px-6 py-4 font-medium">
-                    <span style={{ color: CHAIN_COLORS[r.fromChain] }}>{r.fromChain}</span>
-                    <span className="text-zinc-600 mx-1">→</span>
-                    <span style={{ color: CHAIN_COLORS[r.toChain] }}>{r.toChain}</span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <EncryptedBadge size="sm" animate={false} />
-                  </td>
-                  <td className="px-6 py-4">
-                    <a
-                      href={solscanTxUrl(r.solanaTx)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 font-mono text-zinc-400 hover:text-brand-300 transition-colors group"
-                    >
-                      {shortSig(r.solanaTx)}
-                      <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </a>
-                  </td>
-                  <td className="px-6 py-4 text-zinc-500">{timeAgo(r.at)}</td>
-                  <td className="px-6 py-4">
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-500/10 border border-brand-500/20 px-2.5 py-1 text-brand-400">
-                      <CheckCircle className="h-3 w-3" /> Executed
-                    </span>
+              {!rebalanceSig && !withdrawSig ? (
+                <tr>
+                  <td colSpan={4} className="px-6 py-10 text-center text-zinc-600">
+                    No on-chain activity yet this session. Use Rebalance or Withdraw above to record a real transaction.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                <>
+                  {rebalanceSig && (
+                    <tr className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors">
+                      <td className="px-6 py-4 font-medium">
+                        <span style={{ color: CHAIN_COLORS.Bitcoin }}>BTC</span>
+                        <span className="text-zinc-600 mx-1">→</span>
+                        <span style={{ color: CHAIN_COLORS.Ethereum }}>ETH</span>
+                      </td>
+                      <td className="px-6 py-4"><EncryptedBadge size="sm" animate={false} /></td>
+                      <td className="px-6 py-4">
+                        <a href={solscanTxUrl(rebalanceSig)} target="_blank" rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 font-mono text-zinc-400 hover:text-brand-300 transition-colors group">
+                          {shortSig(rebalanceSig)}
+                          <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </a>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-500/10 border border-brand-500/20 px-2.5 py-1 text-brand-400">
+                          <CheckCircle className="h-3 w-3" /> Executed
+                        </span>
+                      </td>
+                    </tr>
+                  )}
+                  {withdrawSig && (
+                    <tr className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors">
+                      <td className="px-6 py-4 font-medium text-red-400">Withdraw</td>
+                      <td className="px-6 py-4"><EncryptedBadge size="sm" animate={false} /></td>
+                      <td className="px-6 py-4">
+                        <a href={solscanTxUrl(withdrawSig)} target="_blank" rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 font-mono text-zinc-400 hover:text-brand-300 transition-colors group">
+                          {shortSig(withdrawSig)}
+                          <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </a>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-500/10 border border-brand-500/20 px-2.5 py-1 text-brand-400">
+                          <CheckCircle className="h-3 w-3" /> Executed
+                        </span>
+                      </td>
+                    </tr>
+                  )}
+                </>
+              )}
             </tbody>
           </table>
         </div>
