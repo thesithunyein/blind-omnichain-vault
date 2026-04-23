@@ -5,12 +5,12 @@ import { ArrowRight, Copy, Check, Info, Lock, Zap, ChevronDown, ExternalLink } f
 import { EncryptedBadge } from "@/components/EncryptedBadge";
 import { useWallet, useAnchorWallet } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
-import { AnchorProvider } from "@coral-xyz/anchor";
 import { cn } from "@/lib/utils";
 import {
-  getBovProgram, getVaultPdaForWallet, getUserLedgerPda, getChainBalancePda,
-  stubEncrypt, ensureVault, isProgramDeployed, solscanTxUrl, shortSig,
-  CONNECTION, PROGRAM_ID,
+  getVaultPdaForWallet, getUserLedgerPda, getChainBalancePda,
+  stubEncrypt, ensureVault, buildDepositIx, sendAndConfirm,
+  isProgramDeployed, solscanTxUrl, shortSig,
+  PROGRAM_ID,
 } from "@/lib/bov-client";
 
 const CHAINS = [
@@ -48,36 +48,24 @@ export default function DepositPage() {
     if (!amount || !anchorWallet) return;
     setTxErr(null);
     try {
-      const provider = new AnchorProvider(CONNECTION, anchorWallet, { commitment: "confirmed" });
-      const program  = getBovProgram(provider);
-      const authority = anchorWallet.publicKey;
-
-      // Step 1: auto-initialize vault if this wallet hasn't done it yet
-      setStep("initializing");
-      const iSig = await ensureVault(program, authority);
-      if (iSig) setInitSig(iSig);
-
-      // Step 2: client-side stub encryption
-      // Production: Encrypt REFHE client SDK encrypts with vault public key
-      setStep("encrypting");
-      const encryptedAmount = Array.from(stubEncrypt(Math.round(parseFloat(amount) * 1e6)));
-
-      // Step 3: submit deposit instruction
-      setStep("confirming");
+      const authority      = anchorWallet.publicKey;
       const [vault]        = getVaultPdaForWallet(authority);
       const [userLedger]   = getUserLedgerPda(vault, authority);
       const [chainBalance] = getChainBalancePda(vault, selectedChain.id);
 
-      const sig = await (program.methods as any)
-        .deposit(selectedChain.id, encryptedAmount)
-        .accounts({
-          vault,
-          userLedger,
-          chainBalance,
-          user:          authority,
-          systemProgram: "11111111111111111111111111111111",
-        })
-        .rpc();
+      // Step 1: auto-initialize vault PDA on first deposit
+      setStep("initializing");
+      const iSig = await ensureVault(vault, anchorWallet);
+      if (iSig) setInitSig(iSig);
+
+      // Step 2: client-side stub encryption
+      setStep("encrypting");
+      const encryptedAmount = Array.from(stubEncrypt(Math.round(parseFloat(amount) * 1e6)));
+
+      // Step 3: build and send deposit instruction (raw web3.js, no Anchor client)
+      setStep("confirming");
+      const ix  = await buildDepositIx(vault, userLedger, chainBalance, authority, selectedChain.id, encryptedAmount);
+      const sig = await sendAndConfirm(ix, anchorWallet);
 
       setTxSig(sig);
       setStep("done");

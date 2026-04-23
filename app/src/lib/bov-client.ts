@@ -1,11 +1,17 @@
 /**
- * Blind Omnichain Vault — Anchor program client
+ * Blind Omnichain Vault — program client
+ *
+ * Uses raw @solana/web3.js + browser Web Crypto API for instruction building.
+ * No @coral-xyz/anchor client dependency — avoids the _bn serialization bug
+ * that occurs when Anchor 0.30 tries to parse a legacy-format IDL in Next.js.
  *
  * Live demo: https://blind-omnichain-vault.vercel.app
- * Program:   see PROGRAM_ID below — update after Solana Playground deploy
+ * Program:   6jkfCwYGm33xFqBfajHHWxcnG1YJzm2Jd7cME2jUNaaf (Solana devnet)
  */
-import { AnchorProvider, Program } from "@coral-xyz/anchor";
-import { PublicKey, Connection, SystemProgram } from "@solana/web3.js";
+import {
+  PublicKey, Connection, SystemProgram,
+  Transaction, TransactionInstruction,
+} from "@solana/web3.js";
 
 // ─── Update this after deploying via Solana Playground ───────────────────────
 export const PROGRAM_ID = new PublicKey(
@@ -39,146 +45,6 @@ export const CHAIN = {
 
 export type ChainName = keyof typeof CHAIN;
 
-// ─── IDL (matches programs/bov/src/lib.rs exactly) ───────────────────────────
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const BOV_IDL: any = {
-  version: "0.1.0",
-  name: "bov",
-  instructions: [
-    {
-      name: "initializeVault",
-      accounts: [
-        { name: "vault",         isMut: true,  isSigner: false },
-        { name: "authority",     isMut: true,  isSigner: true  },
-        { name: "systemProgram", isMut: false, isSigner: false },
-      ],
-      args: [
-        { name: "vaultId",           type: "u64" },
-        { name: "encTargetWeights",  type: { vec: { vec: "u8" } } },
-        { name: "encRebalanceBand",  type: { vec: "u8" } },
-        { name: "supportedChains",   type: { vec: "u8" } },
-      ],
-    },
-    {
-      name: "registerDwallet",
-      accounts: [
-        { name: "vault",         isMut: true,  isSigner: false },
-        { name: "registryEntry", isMut: true,  isSigner: false },
-        { name: "authority",     isMut: true,  isSigner: true  },
-        { name: "systemProgram", isMut: false, isSigner: false },
-      ],
-      args: [
-        { name: "chain",          type: "u8" },
-        { name: "dwalletId",      type: { array: ["u8", 32] } },
-        { name: "foreignAddress", type: { vec: "u8" } },
-      ],
-    },
-    {
-      name: "deposit",
-      accounts: [
-        { name: "vault",         isMut: true,  isSigner: false },
-        { name: "userLedger",    isMut: true,  isSigner: false },
-        { name: "chainBalance",  isMut: true,  isSigner: false },
-        { name: "user",          isMut: true,  isSigner: true  },
-        { name: "systemProgram", isMut: false, isSigner: false },
-      ],
-      args: [
-        { name: "chain",           type: "u8" },
-        { name: "encryptedAmount", type: { vec: "u8" } },
-      ],
-    },
-    {
-      name: "requestRebalance",
-      accounts: [
-        { name: "vault",   isMut: true,  isSigner: false },
-        { name: "cranker", isMut: false, isSigner: true  },
-      ],
-      args: [
-        { name: "fromChain",      type: "u8" },
-        { name: "toChain",        type: "u8" },
-        { name: "preparedDigest", type: { array: ["u8", 32] } },
-      ],
-    },
-    {
-      name: "withdraw",
-      accounts: [
-        { name: "vault",      isMut: false, isSigner: false },
-        { name: "userLedger", isMut: true,  isSigner: false },
-        { name: "user",       isMut: true,  isSigner: true  },
-      ],
-      args: [
-        { name: "chain", type: "u8" },
-      ],
-    },
-    {
-      name: "setPaused",
-      accounts: [
-        { name: "vault",     isMut: true,  isSigner: false },
-        { name: "authority", isMut: false, isSigner: true  },
-      ],
-      args: [{ name: "paused", type: "bool" }],
-    },
-  ],
-  accounts: [
-    {
-      name: "Vault",
-      type: {
-        kind: "struct",
-        fields: [
-          { name: "vaultId",          type: "u64"              },
-          { name: "authority",         type: "publicKey"        },
-          { name: "bump",              type: "u8"               },
-          { name: "paused",            type: "bool"             },
-          { name: "dwalletCount",      type: "u8"               },
-          { name: "totalDepositors",   type: "u64"              },
-          { name: "totalRebalances",   type: "u64"              },
-          { name: "supportedChains",   type: { vec: "u8" }      },
-          { name: "encTargetWeights",  type: { vec: { vec: "u8" } } },
-          { name: "encRebalanceBand",  type: { vec: "u8" }      },
-          { name: "encNav",            type: { vec: "u8" }      },
-        ],
-      },
-    },
-    {
-      name: "UserLedger",
-      type: {
-        kind: "struct",
-        fields: [
-          { name: "owner",        type: "publicKey"   },
-          { name: "vault",        type: "publicKey"   },
-          { name: "encShares",    type: { vec: "u8" } },
-          { name: "depositCount", type: "u64"         },
-          { name: "bump",         type: "u8"          },
-        ],
-      },
-    },
-    {
-      name: "ChainBalance",
-      type: {
-        kind: "struct",
-        fields: [
-          { name: "vault",       type: "publicKey"   },
-          { name: "chain",       type: "u8"          },
-          { name: "encBalance",  type: { vec: "u8" } },
-          { name: "bump",        type: "u8"          },
-        ],
-      },
-    },
-  ],
-  errors: [
-    { code: 6000, name: "ChainWeightMismatch", msg: "Chain and weight vectors have different lengths." },
-    { code: 6001, name: "TooManyChains",       msg: "Too many chains configured for this vault." },
-    { code: 6002, name: "ChainNotSupported",   msg: "Chain is not supported by this vault." },
-    { code: 6003, name: "TooManyDWallets",     msg: "Too many dWallets already registered." },
-    { code: 6004, name: "AddressTooLong",      msg: "Foreign address exceeds max length." },
-    { code: 6005, name: "VaultPaused",         msg: "Vault is paused." },
-    { code: 6006, name: "Unauthorized",        msg: "Caller is not authorised." },
-    { code: 6007, name: "EmptyCiphertext",     msg: "Ciphertext is empty." },
-    { code: 6008, name: "CiphertextTooLarge",  msg: "Ciphertext exceeds maximum size." },
-  ],
-  metadata: { address: PROGRAM_ID.toBase58() },
-};
-
 // ─── PDA helpers ─────────────────────────────────────────────────────────────
 
 export function getVaultPda(authority: PublicKey, vaultId: number): [PublicKey, number] {
@@ -204,35 +70,148 @@ export function getChainBalancePda(vault: PublicKey, chain: number): [PublicKey,
   );
 }
 
-// ─── Ciphertext stub: XOR-encrypt the amount with a nonce for demo purposes ──
-// Production: Encrypt REFHE client-side encryption
-export function stubEncrypt(amount: number): Buffer {
-  const nonce = crypto.getRandomValues(new Uint8Array(16));
-  const buf   = Buffer.alloc(32);
-  const amtBuf = Buffer.alloc(8);
-  amtBuf.writeBigUInt64LE(BigInt(amount));
-  for (let i = 0; i < 8; i++)  buf[i]      = amtBuf[i]  ^ nonce[i % 16];
-  for (let i = 0; i < 16; i++) buf[8 + i]  = nonce[i];
-  // zero-pad remaining
-  return buf;
+// ─── Borsh micro-helpers (no external dependency) ────────────────────────────
+
+function u8b(val: number): Buffer { return Buffer.from([val]); }
+function u32LE(val: number): Buffer { const b = Buffer.alloc(4); b.writeUInt32LE(val); return b; }
+function u64LE(val: number): Buffer { const b = Buffer.alloc(8); b.writeBigUInt64LE(BigInt(val)); return b; }
+function vecU8(data: number[] | Uint8Array): Buffer {
+  return Buffer.concat([u32LE(data.length), Buffer.from(data)]);
+}
+function vecVecU8(rows: number[][]): Buffer {
+  return Buffer.concat([u32LE(rows.length), ...rows.map(vecU8)]);
 }
 
-// ─── Solscan TX link (devnet) ─────────────────────────────────────────────────
-export function solscanTxUrl(sig: string): string {
-  return `https://solscan.io/tx/${sig}?cluster=devnet`;
-}
-export function solscanAccountUrl(addr: string): string {
-  return `https://solscan.io/account/${addr}?cluster=devnet`;
-}
-export function shortSig(sig: string): string {
-  return sig.slice(0, 6) + "…" + sig.slice(-4);
-}
-export function shortAddress(addr: string): string {
-  return addr.slice(0, 4) + "…" + addr.slice(-4);
+// Compute Anchor instruction discriminator: sha256("global:<name>")[0..8]
+// Uses the Web Crypto API — available in all modern browsers and Node 18+.
+async function anchorDisc(name: string): Promise<Buffer> {
+  const hash = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(`global:${name}`)
+  );
+  return Buffer.from(new Uint8Array(hash, 0, 8));
 }
 
-// ─── Vault initialization helper ─────────────────────────────────────────────
-// Returns true if the program is deployed and executable on devnet.
+// ─── Wallet interface (subset of AnchorWallet / WalletContextState) ───────────
+export type SolWallet = {
+  publicKey: PublicKey;
+  signTransaction: (tx: Transaction) => Promise<Transaction>;
+};
+
+// ─── Raw instruction builders ─────────────────────────────────────────────────
+
+export async function buildInitVaultIx(
+  vault: PublicKey,
+  authority: PublicKey,
+): Promise<TransactionInstruction> {
+  const data = Buffer.concat([
+    await anchorDisc("initialize_vault"),
+    u64LE(VAULT_ID),                        // vault_id: u64
+    vecVecU8([[60], [25], [10], [5]]),       // enc_target_weights: Vec<Vec<u8>> stub
+    vecU8([5]),                              // enc_rebalance_band: Vec<u8> stub
+    vecU8([0, 1, 2, 3]),                    // supported_chains: Vec<u8>
+  ]);
+  return new TransactionInstruction({
+    keys: [
+      { pubkey: vault,                   isWritable: true,  isSigner: false },
+      { pubkey: authority,               isWritable: true,  isSigner: true  },
+      { pubkey: SystemProgram.programId, isWritable: false, isSigner: false },
+    ],
+    programId: PROGRAM_ID,
+    data,
+  });
+}
+
+export async function buildDepositIx(
+  vault: PublicKey,
+  userLedger: PublicKey,
+  chainBalance: PublicKey,
+  user: PublicKey,
+  chain: number,
+  encryptedAmount: number[],
+): Promise<TransactionInstruction> {
+  const data = Buffer.concat([
+    await anchorDisc("deposit"),
+    u8b(chain),             // chain: u8
+    vecU8(encryptedAmount), // encrypted_amount: Vec<u8>
+  ]);
+  return new TransactionInstruction({
+    keys: [
+      { pubkey: vault,                   isWritable: true,  isSigner: false },
+      { pubkey: userLedger,              isWritable: true,  isSigner: false },
+      { pubkey: chainBalance,            isWritable: true,  isSigner: false },
+      { pubkey: user,                    isWritable: true,  isSigner: true  },
+      { pubkey: SystemProgram.programId, isWritable: false, isSigner: false },
+    ],
+    programId: PROGRAM_ID,
+    data,
+  });
+}
+
+export async function buildRebalanceIx(
+  vault: PublicKey,
+  cranker: PublicKey,
+  fromChain: number,
+  toChain: number,
+  digest: Uint8Array,
+): Promise<TransactionInstruction> {
+  const data = Buffer.concat([
+    await anchorDisc("request_rebalance"),
+    u8b(fromChain),      // from_chain: u8
+    u8b(toChain),        // to_chain: u8
+    Buffer.from(digest), // prepared_digest: [u8; 32]
+  ]);
+  return new TransactionInstruction({
+    keys: [
+      { pubkey: vault,    isWritable: true,  isSigner: false },
+      { pubkey: cranker,  isWritable: false, isSigner: true  },
+    ],
+    programId: PROGRAM_ID,
+    data,
+  });
+}
+
+export async function buildWithdrawIx(
+  vault: PublicKey,
+  userLedger: PublicKey,
+  user: PublicKey,
+  chain: number,
+): Promise<TransactionInstruction> {
+  const data = Buffer.concat([
+    await anchorDisc("withdraw"),
+    u8b(chain), // chain: u8
+  ]);
+  return new TransactionInstruction({
+    keys: [
+      { pubkey: vault,       isWritable: false, isSigner: false },
+      { pubkey: userLedger,  isWritable: true,  isSigner: false },
+      { pubkey: user,        isWritable: true,  isSigner: true  },
+    ],
+    programId: PROGRAM_ID,
+    data,
+  });
+}
+
+// ─── Send and confirm helper ──────────────────────────────────────────────────
+
+export async function sendAndConfirm(
+  ixs: TransactionInstruction | TransactionInstruction[],
+  wallet: SolWallet,
+): Promise<string> {
+  const tx = new Transaction();
+  const instructions = Array.isArray(ixs) ? ixs : [ixs];
+  for (const ix of instructions) tx.add(ix);
+  tx.feePayer = wallet.publicKey;
+  const { blockhash } = await CONNECTION.getLatestBlockhash("confirmed");
+  tx.recentBlockhash = blockhash;
+  const signed = await wallet.signTransaction(tx);
+  const sig = await CONNECTION.sendRawTransaction(signed.serialize(), { skipPreflight: false });
+  await CONNECTION.confirmTransaction(sig, "confirmed");
+  return sig;
+}
+
+// ─── On-chain account helpers ─────────────────────────────────────────────────
+
 export async function isProgramDeployed(): Promise<boolean> {
   try {
     const info = await CONNECTION.getAccountInfo(PROGRAM_ID);
@@ -242,46 +221,45 @@ export async function isProgramDeployed(): Promise<boolean> {
   }
 }
 
-// Returns true if the vault PDA account exists on-chain.
 export async function vaultExists(vaultPda: PublicKey): Promise<boolean> {
   const info = await CONNECTION.getAccountInfo(vaultPda);
   return info !== null;
 }
 
-// Initialize vault for the connected wallet (called once automatically).
-export async function ensureVault(
-  program: Program,
-  authority: PublicKey,
-): Promise<string | null> {
-  const [vault] = getVaultPda(authority, VAULT_ID);
+// Auto-initialize vault for wallet on first deposit.
+export async function ensureVault(vault: PublicKey, wallet: SolWallet): Promise<string | null> {
   if (await vaultExists(vault)) return null;
-
-  // Stub ciphertexts for demo. Production: real Encrypt FHE ciphertexts.
-  // Args match lib.rs: initialize_vault(vault_id, enc_target_weights, enc_rebalance_band, supported_chains)
-  const encWeights = [[60], [25], [10], [5]]; // 4 x 1-byte stub ciphertexts (BTC 60%, ETH 25%, SUI 10%, ZEC 5%)
-  const encBand    = [5];                      // 1-byte stub: 5% band
-  const chains     = [0, 1, 2, 3];            // Bitcoin=0, Ethereum=1, Sui=2, Zcash=3
-
-  const sig = await (program.methods as any)
-    .initializeVault(
-      VAULT_ID,   // u64
-      encWeights, // Vec<Vec<u8>>
-      encBand,    // Vec<u8>
-      chains,     // Vec<u8>
-    )
-    .accounts({
-      vault,
-      authority,
-      systemProgram: SystemProgram.programId,
-    })
-    .rpc();
-  return sig;
+  const ix = await buildInitVaultIx(vault, wallet.publicKey);
+  return sendAndConfirm(ix, wallet);
 }
 
-// ─── Program factory ─────────────────────────────────────────────────────────
-// Cast constructor to support both Anchor 0.30 (idl, provider) and legacy
-// (idl, programId, provider) — at runtime Anchor 0.30 checks if the second
-// arg is a PublicKey and treats it as the legacy programId path.
-export function getBovProgram(provider: AnchorProvider): Program {
-  return new (Program as any)(BOV_IDL, PROGRAM_ID, provider) as Program;
+// Decode UserLedger Borsh layout: 8-disc | 32 vault | 32 owner | 4 count | 4+n encShares | 1 bump
+export function decodeUserLedger(data: Buffer): { depositCount: number; encShares: number[] } | null {
+  try {
+    let o = 8 + 32 + 32;                           // skip discriminator + vault + owner
+    const depositCount = data.readUInt32LE(o); o += 4;
+    const len          = data.readUInt32LE(o); o += 4;
+    const encShares    = Array.from(data.subarray(o, o + len));
+    return { depositCount, encShares };
+  } catch {
+    return null;
+  }
 }
+
+// ─── Stub encryption ──────────────────────────────────────────────────────────
+// Production: Encrypt REFHE client-side SDK
+export function stubEncrypt(amount: number): Buffer {
+  const nonce  = crypto.getRandomValues(new Uint8Array(16));
+  const buf    = Buffer.alloc(32);
+  const amtBuf = Buffer.alloc(8);
+  amtBuf.writeBigUInt64LE(BigInt(amount));
+  for (let i = 0; i < 8;  i++) buf[i]     = amtBuf[i] ^ nonce[i % 16];
+  for (let i = 0; i < 16; i++) buf[8 + i] = nonce[i];
+  return buf;
+}
+
+// ─── Solscan helpers ──────────────────────────────────────────────────────────
+export function solscanTxUrl(sig: string):    string { return `https://solscan.io/tx/${sig}?cluster=devnet`; }
+export function solscanAccountUrl(addr: string): string { return `https://solscan.io/account/${addr}?cluster=devnet`; }
+export function shortSig(sig: string):        string { return sig.slice(0, 6) + "…" + sig.slice(-4); }
+export function shortAddress(addr: string):   string { return addr.slice(0, 4) + "…" + addr.slice(-4); }

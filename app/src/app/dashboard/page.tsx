@@ -6,9 +6,10 @@ import { EncryptedBadge } from "@/components/EncryptedBadge";
 import { StatCard } from "@/components/StatCard";
 import { shortAddress } from "@/lib/utils";
 import { useWallet, useAnchorWallet } from "@solana/wallet-adapter-react";
-import { AnchorProvider } from "@coral-xyz/anchor";
 import {
-  getBovProgram, getVaultPdaForWallet, getUserLedgerPda,
+  getVaultPdaForWallet, getUserLedgerPda,
+  buildRebalanceIx, buildWithdrawIx, sendAndConfirm,
+  decodeUserLedger, vaultExists,
   solscanTxUrl, shortSig,
   CONNECTION, PROGRAM_ID,
 } from "@/lib/bov-client";
@@ -46,24 +47,22 @@ export default function DashboardPage() {
     if (!publicKey) { setPosition(null); return; }
     setLoadingPos(true);
     try {
-      const [vault] = getVaultPdaForWallet(publicKey);
+      const [vault]     = getVaultPdaForWallet(publicKey);
       const [ledgerPda] = getUserLedgerPda(vault, publicKey);
-      const info = await CONNECTION.getAccountInfo(ledgerPda);
-      if (!info) {
+      const exists      = await vaultExists(ledgerPda);
+      if (!exists) {
         setPosition({ depositCount: 0, encShares: [], hasPosition: false });
       } else {
-        const provider = new AnchorProvider(CONNECTION, anchorWallet!, { commitment: "confirmed" });
-        const program = getBovProgram(provider);
-        const ledger = await (program.account as any).userLedger.fetch(ledgerPda);
-        setPosition({
-          depositCount: Number(ledger.depositCount),
-          encShares: Array.from(ledger.encShares as number[]),
-          hasPosition: true,
-        });
+        const info    = await CONNECTION.getAccountInfo(ledgerPda);
+        const decoded = info ? decodeUserLedger(Buffer.from(info.data)) : null;
+        setPosition(decoded
+          ? { depositCount: decoded.depositCount, encShares: decoded.encShares, hasPosition: true }
+          : { depositCount: 0, encShares: [], hasPosition: false }
+        );
       }
     } catch { setPosition(null); }
     finally { setLoadingPos(false); }
-  }, [publicKey, anchorWallet]);
+  }, [publicKey]);
 
   useEffect(() => { fetchPosition(); }, [fetchPosition]);
 
@@ -71,14 +70,10 @@ export default function DashboardPage() {
     if (!anchorWallet) return;
     setActionErr(null);
     try {
-      const provider = new AnchorProvider(CONNECTION, anchorWallet, { commitment: "confirmed" });
-      const program  = getBovProgram(provider);
-      const [vault]  = getVaultPdaForWallet(anchorWallet.publicKey);
+      const [vault]      = getVaultPdaForWallet(anchorWallet.publicKey);
       const [userLedger] = getUserLedgerPda(vault, anchorWallet.publicKey);
-      const sig = await (program.methods as any)
-        .withdraw(0)
-        .accounts({ vault, userLedger, user: anchorWallet.publicKey })
-        .rpc();
+      const ix  = await buildWithdrawIx(vault, userLedger, anchorWallet.publicKey, 0);
+      const sig = await sendAndConfirm(ix, anchorWallet);
       setWithdrawSig(sig);
       await fetchPosition();
     } catch (e: unknown) {
@@ -90,15 +85,10 @@ export default function DashboardPage() {
     if (!anchorWallet) return;
     setActionErr(null);
     try {
-      const provider = new AnchorProvider(CONNECTION, anchorWallet, { commitment: "confirmed" });
-      const program  = getBovProgram(provider);
-      const [vault]  = getVaultPdaForWallet(anchorWallet.publicKey);
-      const digest   = new Uint8Array(32);
-      crypto.getRandomValues(digest);
-      const sig = await (program.methods as any)
-        .requestRebalance(0, 1, Array.from(digest))
-        .accounts({ vault, cranker: anchorWallet.publicKey })
-        .rpc();
+      const [vault] = getVaultPdaForWallet(anchorWallet.publicKey);
+      const digest  = crypto.getRandomValues(new Uint8Array(32));
+      const ix  = await buildRebalanceIx(vault, anchorWallet.publicKey, 0, 1, digest);
+      const sig = await sendAndConfirm(ix, anchorWallet);
       setRebalanceSig(sig);
     } catch (e: unknown) {
       setActionErr(e instanceof Error ? e.message : String(e));
