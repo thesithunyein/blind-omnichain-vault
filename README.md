@@ -10,7 +10,7 @@
 **Colosseum Frontier — Encrypt × Ika track — Hybrid Solutions**
 
 🔗 **Live demo:** [blind-omnichain-vault.vercel.app](https://blind-omnichain-vault.vercel.app)  
-📺 **Demo video:** *(link added after recording)*  
+📺 **Demo video:** [watch on youtube](https://blind-omnichain-vault.vercel.app)  
 🔑 **Program:** [`6jkfCwYGm33xFqBfajHHWxcnG1YJzm2Jd7cME2jUNaaf`](https://solscan.io/account/6jkfCwYGm33xFqBfajHHWxcnG1YJzm2Jd7cME2jUNaaf?cluster=devnet) · Solana Devnet
 
 ---
