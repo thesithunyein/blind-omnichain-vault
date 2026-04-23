@@ -13,7 +13,7 @@
  * for real Ika SDK calls once the devnet endpoint is wired.
  *
  * Live demo: https://blind-omnichain-vault.vercel.app
- * Program:   Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS (Solana devnet)
+ * Program:   6jkfCwYGm33xFqBfajHHWxcnG1YJzm2Jd7cME2jUNaaf (Solana devnet)
  */
 
 import { PublicKey } from "@solana/web3.js";

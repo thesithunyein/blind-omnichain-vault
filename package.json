@@ -9,7 +9,7 @@
   ],
   "scripts": {
     "build": "pnpm -r build",
-    "test": "pnpm -r test",
+    "test": "ts-node tests/unit.ts",
     "dev": "pnpm --filter app dev",
     "demo": "ts-node scripts/demo.ts",
     "lint": "pnpm -r lint"
@@ -17,7 +17,8 @@
   "devDependencies": {
     "ts-node": "^10.9.2",
     "typescript": "^5.5.4",
-    "@types/node": "^22.0.0"
+    "@types/node": "^22.0.0",
+    "@solana/web3.js": "^1.98.0"
   },
   "packageManager": "pnpm@9.15.4",
   "engines": {
