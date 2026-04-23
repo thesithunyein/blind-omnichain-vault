@@ -10,7 +10,7 @@
 **Colosseum Frontier — Encrypt × Ika track — Hybrid Solutions**
 
 🔗 **Live demo:** [blind-omnichain-vault.vercel.app](https://blind-omnichain-vault.vercel.app)  
-📺 **Demo video:** [watch on youtube](https://blind-omnichain-vault.vercel.app)  
+📺 **Demo video:** [Watch on YouTube](https://youtu.be/nCMyo97XJuw)  
 🔑 **Program:** [`6jkfCwYGm33xFqBfajHHWxcnG1YJzm2Jd7cME2jUNaaf`](https://solscan.io/account/6jkfCwYGm33xFqBfajHHWxcnG1YJzm2Jd7cME2jUNaaf?cluster=devnet) · Solana Devnet
 
 ---
@@ -120,10 +120,9 @@ The full deposit → rebalance → withdraw lifecycle runs on Solana devnet toda
 
 | Event | Solana TX | Status |
 |---|---|---|
-| Vault init (wallet authority) | see Solscan below | ✅ Confirmed |
-| Deposit (encrypted amount stored) | [1tKWf8…N9xN](https://solscan.io/tx/1tKWf8GpgugChdMvJmvPgHE9XUBD36vYWujGho16UasA2setuD2UsFNG1AmQAQAoTznWJq9c7TfZGrGehVJN9xN?cluster=devnet) | ✅ Confirmed |
-| Rebalance (BTC→ETH signal) | [4CkP6T…176m](https://solscan.io/tx/4CkP6T?cluster=devnet) | ✅ Confirmed |
-| Withdraw (enc_shares zeroed) | [2J1PeX…VCVJ](https://solscan.io/tx/2J1PeX?cluster=devnet) | ✅ Confirmed |
+| Deposit (encrypted amount stored) | [4LeGJN…ueHD](https://solscan.io/tx/4LeGJNGNcitu3Ra4PVU4gk6ZTrfpbCxrPtYCRSdUoAbc61P9xc6egx9VCy76vZKXDcVN48zyWodc6kYs2xiKueHD?cluster=devnet) | ✅ Confirmed |
+| Rebalance (BTC→ETH signal) | [298guE…G8CB](https://solscan.io/tx/298guE9mjtpftp3UPX9GD81XW3hzuE9Esz8tXL7oR8NoYrkyw3VstrpdbLmSDRHnCTPz5p9pCSw3oAnJsiqpG8CB?cluster=devnet) | ✅ Confirmed |
+| Withdraw (enc_shares zeroed) | [6EYpkA…fmU](https://solscan.io/tx/6EYpkAr1sgaYiK1J82DBJzGGzrygh7GtSN9AEYKo4acoiFTTTrjgr1WDoPH2wzMDVycwUaY7AAwt3UqyJsaEfmU?cluster=devnet) | ✅ Confirmed |
 
 Every transaction shows **program `6jkfCwYGm33xFqBfajHHWxcnG1YJzm2Jd7cME2jUNaaf`** in Solscan's Instructions tab — not a system program, not a proxy.
 
@@ -256,14 +255,13 @@ pnpm --filter app dev
 
 ## 9. Demo Video
 
-📺 *(Link added after recording — full deposit → rebalance → withdraw walkthrough on Solana devnet)*
+📺 **[Watch the full demo on YouTube](https://youtu.be/nCMyo97XJuw)**
 
 The video covers:
-1. Problem framing: why bridges leak and why public vaults leak (30s)
-2. Architecture: Ika 2PC-MPC dWallets + Encrypt REFHE on Solana (60s)
-3. Live devnet demo: encrypted deposit → blind rebalance → threshold withdraw (2 min)
-4. Code walkthrough: program, encrypted state, instruction builders (60s)
-5. Roadmap to Ika + Encrypt mainnet (30s)
+1. Problem framing: why bridges leak and why public vaults leak
+2. Architecture: Ika 2PC-MPC dWallets + Encrypt REFHE on Solana
+3. Live devnet demo: encrypted deposit → blind rebalance → threshold withdraw
+4. On-chain proof: every transaction verified on Solscan
 
 ---
 
