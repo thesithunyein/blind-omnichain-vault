@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ArrowRight, Copy, Check, Info, Lock, Zap, ChevronDown, ExternalLink } from "lucide-react";
 import { EncryptedBadge } from "@/components/EncryptedBadge";
 import { useWallet, useAnchorWallet } from "@solana/wallet-adapter-react";
@@ -9,8 +9,8 @@ import { AnchorProvider } from "@coral-xyz/anchor";
 import { cn } from "@/lib/utils";
 import {
   getBovProgram, getVaultPdaForWallet, getUserLedgerPda, getChainBalancePda,
-  stubEncrypt, ensureVault, solscanTxUrl, shortSig,
-  CONNECTION,
+  stubEncrypt, ensureVault, isProgramDeployed, solscanTxUrl, shortSig,
+  CONNECTION, PROGRAM_ID,
 } from "@/lib/bov-client";
 
 const CHAINS = [
@@ -32,6 +32,11 @@ export default function DepositPage() {
   const [txSig, setTxSig]               = useState<string | null>(null);
   const [initSig, setInitSig]           = useState<string | null>(null);
   const [txErr, setTxErr]               = useState<string | null>(null);
+  const [programReady, setProgramReady] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    isProgramDeployed().then(setProgramReady);
+  }, []);
 
   function copyAddress() {
     navigator.clipboard.writeText(selectedChain.address);
@@ -92,6 +97,33 @@ export default function DepositPage() {
           The on-chain balance is always a ciphertext.
         </p>
       </div>
+
+      {/* Program deployment status banner */}
+      {programReady === false && (
+        <div className="mb-6 rounded-xl border border-amber-700/40 bg-amber-900/20 px-4 py-3 text-sm">
+          <p className="font-semibold text-amber-400 mb-1">Program not yet deployed on devnet</p>
+          <p className="text-xs text-amber-600">
+            The BOV program needs to be deployed before deposits work.{" "}
+            Follow{" "}
+            <a href="https://github.com/thesithunyein/blind-omnichain-vault/blob/main/SOLANA_PLAYGROUND_DEPLOY.md"
+              target="_blank" rel="noopener noreferrer"
+              className="underline hover:text-amber-400">
+              SOLANA_PLAYGROUND_DEPLOY.md
+            </a>
+            {" "}to deploy, then set{" "}
+            <code className="font-mono bg-amber-900/30 px-1 rounded">NEXT_PUBLIC_BOV_PROGRAM_ID</code>
+            {" "}in Vercel.
+          </p>
+          <p className="text-[11px] text-amber-700 mt-1.5 font-mono">
+            Checking: {PROGRAM_ID.toBase58()}
+          </p>
+        </div>
+      )}
+      {programReady === null && (
+        <div className="mb-6 rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-2.5 text-xs text-zinc-500 animate-pulse">
+          Checking program on devnet…
+        </div>
+      )}
 
       {!connected ? (
         <div className="glass rounded-2xl p-10 flex flex-col items-center gap-4 text-center">
@@ -276,11 +308,12 @@ export default function DepositPage() {
                       />
                     </div>
                     <button
-                      disabled={!amount}
+                      disabled={!amount || programReady === false}
                       onClick={handleDeposit}
                       className="w-full flex items-center justify-center gap-2 rounded-xl bg-brand-600 hover:bg-brand-500 disabled:opacity-40 disabled:cursor-not-allowed px-5 py-3 text-sm font-semibold text-white transition-all"
                     >
-                      <Lock className="h-4 w-4" /> Encrypt & Record Deposit
+                      <Lock className="h-4 w-4" />
+                      {programReady === false ? "Program not deployed" : "Encrypt & Record Deposit"}
                     </button>
                   </>
                 )}

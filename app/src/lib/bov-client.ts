@@ -4,7 +4,7 @@
  * Live demo: https://blind-omnichain-vault.vercel.app
  * Program:   see PROGRAM_ID below — update after Solana Playground deploy
  */
-import { AnchorProvider, BN, Program, type Idl, web3 } from "@coral-xyz/anchor";
+import { AnchorProvider, Program } from "@coral-xyz/anchor";
 import { PublicKey, Connection, SystemProgram } from "@solana/web3.js";
 
 // ─── Update this after deploying via Solana Playground ───────────────────────
@@ -15,7 +15,7 @@ export const PROGRAM_ID = new PublicKey(
 
 // Each connected wallet is its own vault authority for the demo.
 // Production: vault authority would be a multisig/DAO.
-export const VAULT_ID = new BN(1);
+export const VAULT_ID = 1; // plain number; Anchor handles u64 serialization
 
 // Derive the vault PDA for a specific wallet (self-service demo).
 export function getVaultPdaForWallet(wallet: PublicKey): [PublicKey, number] {
@@ -40,7 +40,8 @@ export const CHAIN = {
 export type ChainName = keyof typeof CHAIN;
 
 // ─── IDL (matches programs/bov/src/lib.rs exactly) ───────────────────────────
-export const BOV_IDL: Idl = {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const BOV_IDL: any = {
   version: "0.1.0",
   name: "bov",
   instructions: [
@@ -180,9 +181,9 @@ export const BOV_IDL: Idl = {
 
 // ─── PDA helpers ─────────────────────────────────────────────────────────────
 
-export function getVaultPda(authority: PublicKey, vaultId: BN): [PublicKey, number] {
+export function getVaultPda(authority: PublicKey, vaultId: number): [PublicKey, number] {
   const idBytes = Buffer.alloc(8);
-  idBytes.writeBigUInt64LE(BigInt(vaultId.toString()));
+  idBytes.writeBigUInt64LE(BigInt(vaultId));
   return PublicKey.findProgramAddressSync(
     [Buffer.from("vault"), authority.toBuffer(), idBytes],
     PROGRAM_ID
@@ -231,6 +232,16 @@ export function shortAddress(addr: string): string {
 }
 
 // ─── Vault initialization helper ─────────────────────────────────────────────
+// Returns true if the program is deployed and executable on devnet.
+export async function isProgramDeployed(): Promise<boolean> {
+  try {
+    const info = await CONNECTION.getAccountInfo(PROGRAM_ID);
+    return info !== null && info.executable === true;
+  } catch {
+    return false;
+  }
+}
+
 // Returns true if the vault PDA account exists on-chain.
 export async function vaultExists(vaultPda: PublicKey): Promise<boolean> {
   const info = await CONNECTION.getAccountInfo(vaultPda);
@@ -244,22 +255,33 @@ export async function ensureVault(
 ): Promise<string | null> {
   const [vault] = getVaultPda(authority, VAULT_ID);
   if (await vaultExists(vault)) return null;
+
+  // Stub ciphertexts for demo. Production: real Encrypt FHE ciphertexts.
+  // Args match lib.rs: initialize_vault(vault_id, enc_target_weights, enc_rebalance_band, supported_chains)
+  const encWeights = [[60], [25], [10], [5]]; // 4 x 1-byte stub ciphertexts (BTC 60%, ETH 25%, SUI 10%, ZEC 5%)
+  const encBand    = [5];                      // 1-byte stub: 5% band
+  const chains     = [0, 1, 2, 3];            // Bitcoin=0, Ethereum=1, Sui=2, Zcash=3
+
   const sig = await (program.methods as any)
     .initializeVault(
-      VAULT_ID,
-      4,
-      [6000, 2500, 1000, 500],
+      VAULT_ID,   // u64
+      encWeights, // Vec<Vec<u8>>
+      encBand,    // Vec<u8>
+      chains,     // Vec<u8>
     )
     .accounts({
       vault,
       authority,
-      systemProgram: web3.SystemProgram.programId,
+      systemProgram: SystemProgram.programId,
     })
     .rpc();
   return sig;
 }
 
 // ─── Program factory ─────────────────────────────────────────────────────────
+// Cast constructor to support both Anchor 0.30 (idl, provider) and legacy
+// (idl, programId, provider) — at runtime Anchor 0.30 checks if the second
+// arg is a PublicKey and treats it as the legacy programId path.
 export function getBovProgram(provider: AnchorProvider): Program {
-  return new Program(BOV_IDL, PROGRAM_ID, provider);
+  return new (Program as any)(BOV_IDL, PROGRAM_ID, provider) as Program;
 }
