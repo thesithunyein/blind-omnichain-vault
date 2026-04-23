@@ -1,6 +1,0 @@
-{
-  "buildCommand": "pnpm --filter @bov/app build",
-  "outputDirectory": "app/.next",
-  "installCommand": "pnpm install",
-  "framework": "nextjs"
-}
