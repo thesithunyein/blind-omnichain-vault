@@ -8,9 +8,9 @@ import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { AnchorProvider } from "@coral-xyz/anchor";
 import { cn } from "@/lib/utils";
 import {
-  getBovProgram, getVaultPda, getUserLedgerPda, getChainBalancePda,
-  stubEncrypt, solscanTxUrl, shortSig, VAULT_AUTHORITY, VAULT_ID,
-  CONNECTION, CHAIN, type ChainName,
+  getBovProgram, getVaultPdaForWallet, getUserLedgerPda, getChainBalancePda,
+  stubEncrypt, ensureVault, solscanTxUrl, shortSig,
+  CONNECTION,
 } from "@/lib/bov-client";
 
 const CHAINS = [
@@ -20,7 +20,7 @@ const CHAINS = [
   { id: 3, name: "Zcash",    symbol: "ZEC", color: "#f4b728", address: "zs1z7rejlpsa98s2rrrfkwmaxu53e3yjnh4s" },
 ];
 
-type Step = "select-chain" | "show-address" | "encrypting" | "confirming" | "done";
+type Step = "select-chain" | "show-address" | "initializing" | "encrypting" | "confirming" | "done";
 
 export default function DepositPage() {
   const { connected }  = useWallet();
@@ -30,6 +30,7 @@ export default function DepositPage() {
   const [copied, setCopied]             = useState(false);
   const [amount, setAmount]             = useState("");
   const [txSig, setTxSig]               = useState<string | null>(null);
+  const [initSig, setInitSig]           = useState<string | null>(null);
   const [txErr, setTxErr]               = useState<string | null>(null);
 
   function copyAddress() {
@@ -42,16 +43,24 @@ export default function DepositPage() {
     if (!amount || !anchorWallet) return;
     setTxErr(null);
     try {
-      setStep("encrypting");
-      // Client-side stub encryption: XOR-masks the amount.
-      // Production: Encrypt REFHE client SDK encrypts with vault public key.
-      const encryptedAmount = Array.from(stubEncrypt(Math.round(parseFloat(amount) * 1e6)));
-
-      setStep("confirming");
       const provider = new AnchorProvider(CONNECTION, anchorWallet, { commitment: "confirmed" });
       const program  = getBovProgram(provider);
-      const [vault]  = getVaultPda(VAULT_AUTHORITY, VAULT_ID);
-      const [userLedger] = getUserLedgerPda(vault, anchorWallet.publicKey);
+      const authority = anchorWallet.publicKey;
+
+      // Step 1: auto-initialize vault if this wallet hasn't done it yet
+      setStep("initializing");
+      const iSig = await ensureVault(program, authority);
+      if (iSig) setInitSig(iSig);
+
+      // Step 2: client-side stub encryption
+      // Production: Encrypt REFHE client SDK encrypts with vault public key
+      setStep("encrypting");
+      const encryptedAmount = Array.from(stubEncrypt(Math.round(parseFloat(amount) * 1e6)));
+
+      // Step 3: submit deposit instruction
+      setStep("confirming");
+      const [vault]        = getVaultPdaForWallet(authority);
+      const [userLedger]   = getUserLedgerPda(vault, authority);
       const [chainBalance] = getChainBalancePda(vault, selectedChain.id);
 
       const sig = await (program.methods as any)
@@ -60,7 +69,7 @@ export default function DepositPage() {
           vault,
           userLedger,
           chainBalance,
-          user:          anchorWallet.publicKey,
+          user:          authority,
           systemProgram: "11111111111111111111111111111111",
         })
         .rpc();
@@ -68,7 +77,8 @@ export default function DepositPage() {
       setTxSig(sig);
       setStep("done");
     } catch (err: unknown) {
-      setTxErr(err instanceof Error ? err.message : String(err));
+      const msg = err instanceof Error ? err.message : String(err);
+      setTxErr(msg);
       setStep("show-address");
     }
   }
@@ -103,18 +113,23 @@ export default function DepositPage() {
             <p className="text-xl font-bold text-white mb-2">Deposit confirmed on-chain!</p>
             <p className="text-sm text-zinc-400">Your encrypted balance has been written to the Solana devnet.</p>
           </div>
-          {txSig && (
-            <a
-              href={solscanTxUrl(txSig)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-xl border border-brand-700/60 bg-brand-900/30 px-4 py-3 text-sm font-mono text-brand-300 hover:text-brand-200 transition-colors"
-            >
-              <ExternalLink className="h-4 w-4 shrink-0" />
-              <span>{shortSig(txSig)}</span>
-              <span className="text-xs text-zinc-500 font-sans">→ View on Solscan Devnet</span>
-            </a>
-          )}
+          <div className="w-full space-y-2">
+            {initSig && (
+              <a href={solscanTxUrl(initSig)} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-2 rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-2.5 text-xs font-mono text-zinc-400 hover:text-brand-300 transition-colors">
+                <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+                <span>Vault init: {shortSig(initSig)}</span>
+              </a>
+            )}
+            {txSig && (
+              <a href={solscanTxUrl(txSig)} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-2 rounded-xl border border-brand-700/60 bg-brand-900/30 px-4 py-3 text-sm font-mono text-brand-300 hover:text-brand-200 transition-colors">
+                <ExternalLink className="h-4 w-4 shrink-0" />
+                <span>{shortSig(txSig)}</span>
+                <span className="text-xs text-zinc-500 font-sans">→ View on Solscan Devnet</span>
+              </a>
+            )}
+          </div>
           <div className="w-full rounded-xl border border-surface-border bg-surface-card p-4 text-left">
             <p className="text-xs text-zinc-500 mb-2 uppercase tracking-wider">On-chain encrypted balance</p>
             <EncryptedBadge size="lg" label="balance" />
@@ -123,7 +138,7 @@ export default function DepositPage() {
             </p>
           </div>
           <button
-            onClick={() => { setStep("select-chain"); setAmount(""); setTxSig(null); }}
+            onClick={() => { setStep("select-chain"); setAmount(""); setTxSig(null); setInitSig(null); setTxErr(null); }}
             className="text-sm text-brand-400 hover:text-brand-300 transition-colors"
           >
             Make another deposit →
@@ -273,23 +288,29 @@ export default function DepositPage() {
             )}
           </div>
 
-          {/* Step: Encrypting / Confirming */}
-          {(step === "encrypting" || step === "confirming") && (
+          {/* Step: Initializing / Encrypting / Confirming */}
+          {(step === "initializing" || step === "encrypting" || step === "confirming") && (
             <div className="glass rounded-2xl border-brand-900/50 p-8 flex flex-col items-center gap-4 text-center animate-fade-in">
               <div className="relative h-16 w-16">
                 <div className="absolute inset-0 rounded-full border-2 border-brand-800" />
                 <div className="absolute inset-0 rounded-full border-t-2 border-brand-400 animate-spin" />
-                {step === "encrypting"
+                {step === "initializing"
+                  ? <Zap className="absolute inset-0 m-auto h-6 w-6 text-brand-400" />
+                  : step === "encrypting"
                   ? <Lock className="absolute inset-0 m-auto h-6 w-6 text-brand-400" />
                   : <Zap className="absolute inset-0 m-auto h-6 w-6 text-brand-400" />
                 }
               </div>
               <div>
                 <p className="text-sm font-bold text-white">
-                  {step === "encrypting" ? "Encrypting with Encrypt FHE…" : "Submitting to Solana…"}
+                  {step === "initializing" ? "Setting up your vault…" :
+                   step === "encrypting"   ? "Encrypting with Encrypt FHE…" :
+                                             "Submitting to Solana…"}
                 </p>
                 <p className="text-xs text-zinc-500 mt-1">
-                  {step === "encrypting"
+                  {step === "initializing"
+                    ? "Creating your personal vault PDA on devnet (one-time, ~0.002 SOL)"
+                    : step === "encrypting"
                     ? "Your amount is being converted to an FHE ciphertext client-side"
                     : "Sending the encrypted deposit instruction on-chain"
                   }
@@ -298,6 +319,14 @@ export default function DepositPage() {
               {step === "encrypting" && (
                 <EncryptedBadge size="lg" label="ciphertext" />
               )}
+            </div>
+          )}
+
+          {/* Error display */}
+          {txErr && step === "show-address" && (
+            <div className="rounded-xl border border-red-800/40 bg-red-900/20 px-4 py-3 text-xs text-red-400 leading-relaxed">
+              <p className="font-semibold mb-1">Transaction failed</p>
+              <p className="font-mono break-all">{txErr}</p>
             </div>
           )}
         </div>

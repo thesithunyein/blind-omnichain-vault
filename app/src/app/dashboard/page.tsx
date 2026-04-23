@@ -8,9 +8,9 @@ import { shortAddress } from "@/lib/utils";
 import { useWallet, useAnchorWallet } from "@solana/wallet-adapter-react";
 import { AnchorProvider } from "@coral-xyz/anchor";
 import {
-  getBovProgram, getVaultPda, getUserLedgerPda,
+  getBovProgram, getVaultPdaForWallet, getUserLedgerPda,
   solscanTxUrl, shortSig,
-  VAULT_AUTHORITY, VAULT_ID, CONNECTION, PROGRAM_ID,
+  CONNECTION, PROGRAM_ID,
 } from "@/lib/bov-client";
 
 const CHAIN_COLORS: Record<string, string> = {
@@ -46,7 +46,7 @@ export default function DashboardPage() {
     if (!publicKey) { setPosition(null); return; }
     setLoadingPos(true);
     try {
-      const [vault] = getVaultPda(VAULT_AUTHORITY, VAULT_ID);
+      const [vault] = getVaultPdaForWallet(publicKey);
       const [ledgerPda] = getUserLedgerPda(vault, publicKey);
       const info = await CONNECTION.getAccountInfo(ledgerPda);
       if (!info) {
@@ -73,7 +73,7 @@ export default function DashboardPage() {
     try {
       const provider = new AnchorProvider(CONNECTION, anchorWallet, { commitment: "confirmed" });
       const program  = getBovProgram(provider);
-      const [vault]  = getVaultPda(VAULT_AUTHORITY, VAULT_ID);
+      const [vault]  = getVaultPdaForWallet(anchorWallet.publicKey);
       const [userLedger] = getUserLedgerPda(vault, anchorWallet.publicKey);
       const sig = await (program.methods as any)
         .withdraw(0)
@@ -92,7 +92,7 @@ export default function DashboardPage() {
     try {
       const provider = new AnchorProvider(CONNECTION, anchorWallet, { commitment: "confirmed" });
       const program  = getBovProgram(provider);
-      const [vault]  = getVaultPda(VAULT_AUTHORITY, VAULT_ID);
+      const [vault]  = getVaultPdaForWallet(anchorWallet.publicKey);
       const digest   = new Uint8Array(32);
       crypto.getRandomValues(digest);
       const sig = await (program.methods as any)

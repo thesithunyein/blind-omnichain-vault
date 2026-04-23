@@ -13,13 +13,14 @@ export const PROGRAM_ID = new PublicKey(
   "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
 );
 
-// Vault authority = the deployer's wallet (the one that called initialize_vault)
-// Update this after running initialize_vault once on devnet
-export const VAULT_AUTHORITY = new PublicKey(
-  process.env.NEXT_PUBLIC_VAULT_AUTHORITY ??
-  "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
-);
+// Each connected wallet is its own vault authority for the demo.
+// Production: vault authority would be a multisig/DAO.
 export const VAULT_ID = new BN(1);
+
+// Derive the vault PDA for a specific wallet (self-service demo).
+export function getVaultPdaForWallet(wallet: PublicKey): [PublicKey, number] {
+  return getVaultPda(wallet, VAULT_ID);
+}
 
 export const CONNECTION = new Connection(
   "https://api.devnet.solana.com",
@@ -227,6 +228,35 @@ export function shortSig(sig: string): string {
 }
 export function shortAddress(addr: string): string {
   return addr.slice(0, 4) + "…" + addr.slice(-4);
+}
+
+// ─── Vault initialization helper ─────────────────────────────────────────────
+// Returns true if the vault PDA account exists on-chain.
+export async function vaultExists(vaultPda: PublicKey): Promise<boolean> {
+  const info = await CONNECTION.getAccountInfo(vaultPda);
+  return info !== null;
+}
+
+// Initialize vault for the connected wallet (called once automatically).
+export async function ensureVault(
+  program: Program,
+  authority: PublicKey,
+): Promise<string | null> {
+  const [vault] = getVaultPda(authority, VAULT_ID);
+  if (await vaultExists(vault)) return null;
+  const sig = await (program.methods as any)
+    .initializeVault(
+      VAULT_ID,
+      4,
+      [6000, 2500, 1000, 500],
+    )
+    .accounts({
+      vault,
+      authority,
+      systemProgram: web3.SystemProgram.programId,
+    })
+    .rpc();
+  return sig;
 }
 
 // ─── Program factory ─────────────────────────────────────────────────────────
