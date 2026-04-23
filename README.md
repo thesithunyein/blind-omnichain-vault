@@ -141,20 +141,20 @@ The encrypted balance stored on-chain: `0xC8ED497131BB7BC594AA52D5...` — a rea
                                 │ raw web3.js instructions (no bridge)
                                 ▼
 ┌────────────────────────────────────────────────────────────────────────┐
-│            Solana Program  6jkfCwYGm33xFqBfajHHWxcnG1YJzm2Jd7cME2jUNaaf │
+│           Solana Program  6jkfCwYGm33xFqBfajHHWxcnG1YJzm2Jd7cME2jUNaaf │
 │                                                                        │
-│  ┌─── Vault PDA ───────────────────────────────────────────────────┐  │
-│  │  enc_target_weights: Vec<Vec<u8>>   ← FHE ciphertext            │  │
-│  │  enc_rebalance_band: Vec<u8>        ← FHE ciphertext            │  │
-│  │  dWallet registry: per-chain IDs                                │  │
-│  └──────────────────────────────────────────────────────────────── ┘  │
+│  ┌─── Vault PDA ───────────────────────────────────────────────────┐   │
+│  │  enc_target_weights: Vec<Vec<u8>>   ← FHE ciphertext            │   │
+│  │  enc_rebalance_band: Vec<u8>        ← FHE ciphertext            │   │
+│  │  dWallet registry: per-chain IDs                                │   │
+│  └──────────────────────────────────────────────────────────────── ┘   │
 │                                                                        │
-│  ┌─── UserLedger PDA (per wallet) ────────────────────────────────┐  │
-│  │  enc_shares: Vec<u8>               ← FHE ciphertext            │  │
-│  │  deposit_count: u32                                             │  │
-│  └────────────────────────────────────────────────────────────────┘  │
+│  ┌─── UserLedger PDA (per wallet) ────────────────────────────────┐    │
+│  │  enc_shares: Vec<u8>               ← FHE ciphertext            │    │
+│  │  deposit_count: u32                                            │    │
+│  └────────────────────────────────────────────────────────────────┘    │
 │                                                                        │
-│  Policy engine: fhe_gt(enc_weight, enc_target + enc_band) ─────────── ┤──▶ Encrypt Network
+│  Policy engine: fhe_gt(enc_weight, enc_target + enc_band) ───────────  ┤──▶ Encrypt Network
 │  dWallet sign request: ApproveDWalletSign(chain, tx_hash) ──────────── ┤──▶ Ika Network
 └────────────────────────────────────────────────────────────────────────┘
                 │ Ika co-signs native transaction
@@ -312,4 +312,3 @@ MIT — see [`LICENSE`](LICENSE).
 ---
 
 **Built by [@thesithunyein](https://github.com/thesithunyein)**  
-Contact: [GitHub](https://github.com/thesithunyein)
