@@ -1,6 +1,6 @@
 export const SOLSCAN_BASE = "https://solscan.io/tx";
 export const SOLSCAN_CLUSTER = "?cluster=devnet";
-export const BOV_PROGRAM_ID = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS";
+export const BOV_PROGRAM_ID = "6jkfCwYGm33xFqBfajHHWxcnG1YJzm2Jd7cME2jUNaaf";
 export const SOLSCAN_PROGRAM_URL = `https://solscan.io/account/${BOV_PROGRAM_ID}${SOLSCAN_CLUSTER}`;
 
 export const MOCK_VAULT = {

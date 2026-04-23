@@ -10,7 +10,7 @@ import { PublicKey, Connection, SystemProgram } from "@solana/web3.js";
 // ─── Update this after deploying via Solana Playground ───────────────────────
 export const PROGRAM_ID = new PublicKey(
   process.env.NEXT_PUBLIC_BOV_PROGRAM_ID ??
-  "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
+  "6jkfCwYGm33xFqBfajHHWxcnG1YJzm2Jd7cME2jUNaaf"
 );
 
 // Each connected wallet is its own vault authority for the demo.

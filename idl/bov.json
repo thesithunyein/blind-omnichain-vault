@@ -7,7 +7,7 @@
     "runs strategy on Encrypt FHE ciphertexts.",
     "",
     "Live demo: https://blind-omnichain-vault.vercel.app",
-    "Program:   Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS (Solana devnet)"
+    "Program:   6jkfCwYGm33xFqBfajHHWxcnG1YJzm2Jd7cME2jUNaaf (Solana devnet)"
   ],
   "instructions": [
     {
@@ -265,7 +265,7 @@
     { "code": 6009, "name": "DecryptionFailed",      "msg": "Threshold decryption CPI failed or returned an unexpected result." }
   ],
   "metadata": {
-    "address": "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS",
+    "address": "6jkfCwYGm33xFqBfajHHWxcnG1YJzm2Jd7cME2jUNaaf",
     "origin": "anchor",
     "bpfByteCodeFilename": "bov.so"
   }

@@ -18,7 +18,7 @@
 // ============================================================
 use anchor_lang::prelude::*;
 
-declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
+declare_id!("6jkfCwYGm33xFqBfajHHWxcnG1YJzm2Jd7cME2jUNaaf");
 
 // ---------------------------------------------------------------------------
 // Chain enum
