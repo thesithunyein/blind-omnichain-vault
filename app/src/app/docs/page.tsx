@@ -151,12 +151,12 @@ export default function DocsPage() {
           <div className="flex flex-col sm:flex-row sm:items-center gap-2">
             <span className="text-xs text-zinc-500 uppercase tracking-wider w-28 shrink-0">Program ID</span>
             <a
-              href="https://solscan.io/account/Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS?cluster=devnet"
+              href="https://solscan.io/account/6jkfCwYGm33xFqBfajHHWxcnG1YJzm2Jd7cME2jUNaaf?cluster=devnet"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 font-mono text-xs text-brand-400 hover:text-brand-300 transition-colors"
             >
-              Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS
+              6jkfCwYGm33xFqBfajHHWxcnG1YJzm2Jd7cME2jUNaaf
               <ExternalLink className="h-3 w-3" />
             </a>
           </div>

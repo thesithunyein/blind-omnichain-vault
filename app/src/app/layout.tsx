@@ -7,6 +7,11 @@ export const metadata: Metadata = {
   title: "Blind Omnichain Vault | BOV",
   description:
     "The first Solana vault that custodies native BTC/ETH without bridges (Ika dWallets) and runs strategy on encrypted state (Encrypt FHE). Bridgeless + Blind.",
+  icons: {
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+    ],
+  },
   openGraph: {
     title: "Blind Omnichain Vault",
     description: "Bridgeless + Blind. Multi-chain DeFi with cryptographic privacy.",
@@ -30,12 +35,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   Solana Devnet
                 </span>
                 <a
-                  href="https://solscan.io/account/Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS?cluster=devnet"
+                  href="https://solscan.io/account/6jkfCwYGm33xFqBfajHHWxcnG1YJzm2Jd7cME2jUNaaf?cluster=devnet"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="font-mono hover:text-white transition-colors"
                 >
-                  Fg6P…LnS ↗
+                  6jkf…Naaf ↗
                 </a>
                 <a
                   href="https://github.com/thesithunyein/blind-omnichain-vault"
